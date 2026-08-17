@@ -87,4 +87,11 @@ export class GeofenceRepository {
       data
     });
   }
+
+  public deleteById(id: string) {
+    return this.prisma.geofence.delete({
+      where: { id },
+      select: { id: true }
+    });
+  }
 }

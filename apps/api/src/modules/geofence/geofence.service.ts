@@ -285,4 +285,14 @@ export class GeofenceService {
     }
     return this.repository.update(id, dto);
   }
+
+  public async deleteForAdmin(currentUser: AuthenticatedUser, id: string) {
+    this.requireSupervisorOrAdmin(currentUser);
+    const existing = await this.repository.findById(id);
+    if (!existing) {
+      throw new NotFoundException("Geofence not found");
+    }
+    await this.repository.deleteById(id);
+    return { ok: true as const };
+  }
 }

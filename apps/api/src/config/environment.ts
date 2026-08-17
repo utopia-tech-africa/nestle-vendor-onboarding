@@ -158,16 +158,16 @@ class EnvironmentVariablesDto {
   @IsIn(["v2", "legacy"])
   public MNOTIFY_API_VERSION: "v2" | "legacy" = "v2";
 
-  /** IANA timezone for daily attendance boundaries and late checks (e.g. `Africa/Nairobi`). */
+  /** IANA timezone for daily attendance boundaries and late checks (e.g. `Africa/Accra`). */
   @IsOptional()
   @IsString()
-  public ATTENDANCE_TIMEZONE = "UTC";
+  public ATTENDANCE_TIMEZONE = "Africa/Accra";
 
   /** Local expected clock-in time (`HH:mm`) in `ATTENDANCE_TIMEZONE` for late detection. */
   @IsOptional()
   @IsString()
   @Matches(/^\d{2}:\d{2}$/)
-  public ATTENDANCE_EXPECTED_CHECK_IN_HHMM = "09:00";
+  public ATTENDANCE_EXPECTED_CHECK_IN_HHMM = "05:30";
 
   /** Enforce outlet/geofence proximity for check-ins when active geofences exist. */
   @IsBoolean()
@@ -330,12 +330,12 @@ export const validateEnvironment = (config: Record<string, unknown>): Environmen
       (typeof config["ATTENDANCE_TIMEZONE"] === "string" &&
       config["ATTENDANCE_TIMEZONE"].trim().length > 0
         ? config["ATTENDANCE_TIMEZONE"].trim()
-        : undefined) ?? "UTC",
+        : undefined) ?? "Africa/Accra",
     ATTENDANCE_EXPECTED_CHECK_IN_HHMM:
       (typeof config["ATTENDANCE_EXPECTED_CHECK_IN_HHMM"] === "string" &&
       config["ATTENDANCE_EXPECTED_CHECK_IN_HHMM"].trim().length > 0
         ? config["ATTENDANCE_EXPECTED_CHECK_IN_HHMM"].trim()
-        : undefined) ?? "09:00",
+        : undefined) ?? "05:30",
     ATTENDANCE_ENFORCE_GEOFENCE_DISTANCE: parseEnvBool(
       config["ATTENDANCE_ENFORCE_GEOFENCE_DISTANCE"],
       true

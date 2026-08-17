@@ -2,7 +2,7 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { type SyntheticEvent, type ReactElement, useState } from "react";
+import { type SyntheticEvent, type ReactElement, useMemo, useState } from "react";
 
 import { BoneyardInlineFallback } from "@/components/boneyard/boneyard-inline-fallback";
 import {
@@ -197,6 +197,37 @@ export default function OpsUsersPage(): ReactElement {
   const [editActive, setEditActive] = useState(true);
   const [editGender, setEditGender] = useState<"" | "male" | "female" | "other">("");
   const [editGeofenceIds, setEditGeofenceIds] = useState<string[]>([]);
+  const [search, setSearch] = useState("");
+
+  const filteredUsers = useMemo(() => {
+    const rows = usersQuery.data ?? [];
+    const query = search.trim().toLowerCase();
+    if (query.length === 0) {
+      return rows;
+    }
+    const queryDigits = query.replace(/\D/g, "");
+    return rows.filter((row) => {
+      const hay = [
+        row.fullName,
+        row.email,
+        row.phone,
+        row.uniqueCode,
+        row.role,
+        row.region?.name,
+        ...row.workAreas.map((area) => area.label)
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      if (hay.includes(query)) {
+        return true;
+      }
+      if (queryDigits.length >= 3 && row.phone.replace(/\D/g, "").includes(queryDigits)) {
+        return true;
+      }
+      return false;
+    });
+  }, [search, usersQuery.data]);
 
   const supervisorCanEdit = (row: AdminUserRow): boolean => {
     if (isAdmin) {
@@ -493,7 +524,29 @@ export default function OpsUsersPage(): ReactElement {
       </section>
 
       <section className={cardClass}>
-        <h2 className="text-base font-semibold text-foreground">All users</h2>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="text-base font-semibold text-foreground">All users</h2>
+            {usersQuery.data !== undefined ? (
+              <p className="mt-1 text-sm text-muted-foreground">
+                {filteredUsers.length}
+                {search.trim() ? ` of ${usersQuery.data.length}` : ""} user
+                {filteredUsers.length === 1 ? "" : "s"}
+              </p>
+            ) : null}
+          </div>
+          <label className="text-xs font-medium text-muted-foreground sm:w-80">
+            Search
+            <input
+              className={inputClass}
+              value={search}
+              onChange={(event) => {
+                setSearch(event.target.value);
+              }}
+              placeholder="Name, phone, access code, role, region…"
+            />
+          </label>
+        </div>
         {usersQuery.isLoading ? (
           <BoneyardInlineFallback name="ops-users-list" className="mt-3 min-h-[14rem]" />
         ) : null}
@@ -503,6 +556,13 @@ export default function OpsUsersPage(): ReactElement {
         {usersQuery.data?.length === 0 ? (
           <p className="mt-3 text-sm text-muted-foreground">No users in this list.</p>
         ) : null}
+        {usersQuery.data !== undefined &&
+        usersQuery.data.length > 0 &&
+        filteredUsers.length === 0 ? (
+          <p className="mt-3 text-sm text-muted-foreground">No users match that search.</p>
+        ) : null}
+        {filteredUsers.length > 0 ? (
+          <>
         <div className="mt-4 hidden xl:block">
           <div className="overflow-x-auto rounded-lg border border-border">
             <table className="w-full min-w-[960px] text-left text-sm">
@@ -519,7 +579,7 @@ export default function OpsUsersPage(): ReactElement {
                 </tr>
               </thead>
               <tbody>
-                {usersQuery.data?.map((row) => (
+                {filteredUsers.map((row) => (
                   <tr key={row.id} className="border-b border-border last:border-0">
                     <td className="px-3 py-2 text-foreground">
                       <span className="font-medium">{row.fullName}</span>
@@ -592,7 +652,7 @@ export default function OpsUsersPage(): ReactElement {
           </div>
         </div>
         <ul className="mt-4 flex flex-col gap-3 xl:hidden">
-          {usersQuery.data?.map((row) => (
+          {filteredUsers.map((row) => (
             <li
               key={row.id}
               className="rounded-lg border border-border bg-muted/20 p-4 dark:bg-muted/10"
@@ -646,6 +706,8 @@ export default function OpsUsersPage(): ReactElement {
             </li>
           ))}
         </ul>
+          </>
+        ) : null}
       </section>
 
       {editing ? (

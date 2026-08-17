@@ -1,6 +1,6 @@
 "use client";
 
-import { useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { type ReactElement, type SyntheticEvent, useMemo, useState } from "react";
 
 import { BoneyardInlineFallback } from "@/components/boneyard/boneyard-inline-fallback";
@@ -11,10 +11,12 @@ import {
   useAdminGeofenceListGeofences,
   useAdminGeofenceUpdateGeofence
 } from "@/lib/api/generated/client";
+import { apiRequest } from "@/lib/api/http-client";
 import { useAuthStore } from "@/lib/auth/auth-store";
 import { ApiError } from "@/lib/api/problem-details";
 import { calmPrimaryButtonClass, calmSecondaryButtonClass } from "@/lib/calm-ui";
 import { type GeofenceRow, parseGeofencesFromOrval } from "@/lib/ops/ops-adapters";
+import { toast } from "@/lib/toast";
 
 const cardClass = "rounded-xl border border-border bg-card/80 p-5 shadow-sm dark:bg-card/50";
 
@@ -70,6 +72,27 @@ export default function OpsGeofencesPage(): ReactElement {
   const [editLng, setEditLng] = useState("");
   const [editRadius, setEditRadius] = useState("");
   const [editActive, setEditActive] = useState(true);
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) =>
+      apiRequest<{ ok: true }>(`/admin/geofences/${encodeURIComponent(id)}`, {
+        method: "DELETE",
+        token: accessToken ?? undefined
+      }),
+    onSuccess: async (_result, id) => {
+      if (editing?.id === id) {
+        setEditing(null);
+      }
+      await queryClient.invalidateQueries({ queryKey: getAdminGeofenceListGeofencesQueryKey() });
+      toast.success("Work area deleted");
+    },
+    onError: (err: unknown) => {
+      const msg =
+        err instanceof ApiError ? (err.problem?.detail ?? err.message) : "Delete failed.";
+      setFormError(msg);
+      toast.error("Could not delete work area", { description: msg });
+    }
+  });
 
   const startEdit = (row: GeofenceRow): void => {
     setEditing(row);
@@ -161,6 +184,17 @@ export default function OpsGeofencesPage(): ReactElement {
       id: row.id,
       data: { isActive: !row.isActive }
     });
+  };
+
+  const confirmDelete = (row: GeofenceRow): void => {
+    if (
+      !window.confirm(
+        `Delete “${row.label}”? Promoters assigned to this work area will lose that assignment.`
+      )
+    ) {
+      return;
+    }
+    deleteMutation.mutate(row.id);
   };
 
   const otherZonesForCreate = useMemo(
@@ -320,6 +354,16 @@ export default function OpsGeofencesPage(): ReactElement {
                         >
                           {row.isActive ? "Deactivate" : "Activate"}
                         </button>
+                        <button
+                          type="button"
+                          className="text-xs font-medium text-destructive hover:underline"
+                          disabled={deleteMutation.isPending}
+                          onClick={() => {
+                            confirmDelete(row);
+                          }}
+                        >
+                          Delete
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -371,6 +415,16 @@ export default function OpsGeofencesPage(): ReactElement {
                   }}
                 >
                   Toggle active
+                </button>
+                <button
+                  type="button"
+                  className="text-sm font-medium text-destructive"
+                  disabled={deleteMutation.isPending}
+                  onClick={() => {
+                    confirmDelete(row);
+                  }}
+                >
+                  Delete
                 </button>
               </div>
             </li>
@@ -426,17 +480,29 @@ export default function OpsGeofencesPage(): ReactElement {
                 />
                 Active
               </label>
-              <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
-                <button type="button" className={calmSecondaryButtonClass} onClick={cancelEdit}>
-                  Cancel
-                </button>
+              <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-between">
                 <button
-                  type="submit"
-                  className={calmPrimaryButtonClass}
-                  disabled={updateMutation.isPending}
+                  type="button"
+                  className="inline-flex min-h-11 items-center justify-center rounded-xl px-5 py-3 text-sm font-semibold text-destructive hover:bg-destructive/10 disabled:pointer-events-none disabled:opacity-50"
+                  disabled={deleteMutation.isPending || updateMutation.isPending}
+                  onClick={() => {
+                    confirmDelete(editing);
+                  }}
                 >
-                  {updateMutation.isPending ? "Saving…" : "Save changes"}
+                  {deleteMutation.isPending ? "Deleting…" : "Delete work area"}
                 </button>
+                <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                  <button type="button" className={calmSecondaryButtonClass} onClick={cancelEdit}>
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className={calmPrimaryButtonClass}
+                    disabled={updateMutation.isPending || deleteMutation.isPending}
+                  >
+                    {updateMutation.isPending ? "Saving…" : "Save changes"}
+                  </button>
+                </div>
               </div>
             </form>
           </div>

@@ -56,9 +56,9 @@ export class AttendanceAdminService {
     if (userIds.length === 0) {
       return {
         date,
-        timezone: this.config.get<string>("ATTENDANCE_TIMEZONE") ?? "UTC",
+        timezone: this.config.get<string>("ATTENDANCE_TIMEZONE") ?? "Africa/Accra",
         expectedCheckInLocal:
-          this.config.get<string>("ATTENDANCE_EXPECTED_CHECK_IN_HHMM") ?? "09:00",
+          this.config.get<string>("ATTENDANCE_EXPECTED_CHECK_IN_HHMM") ?? "05:30",
         rows: [],
         summary: { total: 0, present: 0, missed: 0, late: 0, missingClockOut: 0 }
       };
@@ -79,7 +79,7 @@ export class AttendanceAdminService {
     trimmedRegion: string | undefined,
     userIdsFilter?: string[]
   ) {
-    const tz = this.config.get<string>("ATTENDANCE_TIMEZONE") ?? "UTC";
+    const tz = this.config.get<string>("ATTENDANCE_TIMEZONE") ?? "Africa/Accra";
     if (!DateTime.now().setZone(tz).isValid) {
       throw new BadRequestException(`Invalid ATTENDANCE_TIMEZONE: ${tz}`);
     }
@@ -92,7 +92,7 @@ export class AttendanceAdminService {
     const rangeStart = dayStart.toUTC().toJSDate();
     const rangeEnd = dayEnd.toUTC().toJSDate();
 
-    const expectedHm = this.config.get<string>("ATTENDANCE_EXPECTED_CHECK_IN_HHMM") ?? "09:00";
+    const expectedHm = this.config.get<string>("ATTENDANCE_EXPECTED_CHECK_IN_HHMM") ?? "05:30";
     const hmParts = expectedHm.split(":");
     if (hmParts.length !== 2) {
       throw new BadRequestException("Invalid ATTENDANCE_EXPECTED_CHECK_IN_HHMM");

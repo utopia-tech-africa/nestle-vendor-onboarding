@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Inject, Param, Patch, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Inject, Param, Patch, Post, UseGuards } from "@nestjs/common";
 import {
   ApiBearerAuth,
   ApiBody,
@@ -102,5 +102,21 @@ export class GeofenceController {
     @Body() body: UpdateGeofenceDto
   ) {
     return this.geofenceService.updateForAdmin(currentUser, id, body);
+  }
+
+  @Delete(":id")
+  @ApiParam({ name: "id", description: "Geofence id" })
+  @ApiOperation({
+    operationId: "AdminGeofence_deleteGeofence",
+    summary: "Delete geofence (supervisor / admin)",
+    description:
+      "Permanently deletes a work area. Promoters assigned to it lose that assignment; clock-in history is kept."
+  })
+  @ApiOkResponse({ description: "Geofence deleted" })
+  @ApiNotFoundResponse({ description: "Geofence id not found" })
+  @ApiUnauthorizedResponse({ description: "Missing or invalid JWT" })
+  @ApiForbiddenResponse({ description: "Requires supervisor or admin role" })
+  public deleteGeofence(@CurrentUser() currentUser: AuthenticatedUser, @Param("id") id: string) {
+    return this.geofenceService.deleteForAdmin(currentUser, id);
   }
 }
