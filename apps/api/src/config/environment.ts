@@ -289,10 +289,20 @@ export const validateEnvironment = (config: Record<string, unknown>): Environmen
     typeof config["NODE_ENV"] === "string" && config["NODE_ENV"].trim().length > 0
       ? config["NODE_ENV"].trim()
       : undefined;
+  const configuredHost =
+    typeof config["HOST"] === "string" && config["HOST"].trim().length > 0
+      ? config["HOST"].trim()
+      : undefined;
+  // Railway (and other PaaS proxies) connect to the container network interface.
+  // Listening on 127.0.0.1 makes the edge proxy get connection refused / 502.
   const defaultHost = nodeEnv === "production" ? "0.0.0.0" : "127.0.0.1";
+  const host =
+    nodeEnv === "production" && (configuredHost === undefined || configuredHost === "127.0.0.1")
+      ? "0.0.0.0"
+      : (configuredHost ?? defaultHost);
 
   const rawEnvironment: Record<string, unknown> = {
-    HOST: config["HOST"] ?? defaultHost,
+    HOST: host,
     PORT: config["PORT"] ?? 3001,
     DATABASE_URL:
       config["DATABASE_URL"] ?? "postgresql://postgres:postgres@localhost:5432/engaged_sales_app",
