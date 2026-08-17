@@ -20,7 +20,7 @@ export const CalmBackground = (): ReactElement => {
         aria-hidden
         className="absolute inset-0 opacity-[0.4] dark:opacity-[0.25]"
         style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='28' height='28' viewBox='0 0 28 28' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='1' cy='1' r='1' fill='%23d87943' fill-opacity='0.18'/%3E%3C/svg%3E")`,
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='28' height='28' viewBox='0 0 28 28' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='1' cy='1' r='1' fill='%23c8102e' fill-opacity='0.22'/%3E%3C/svg%3E")`,
           backgroundSize: "28px 28px"
         }}
       />

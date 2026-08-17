@@ -1,20 +1,35 @@
-/** Central brand strings, Nestlé palette, and asset paths for the web app. */
+/** Central brand strings, Ideal + Carnation palette, and asset paths for the web app. */
 export const APP_NAME = "Nestlé Ghana";
 export const APP_SHORT_NAME = "Nestlé";
 export const APP_DESCRIPTION =
   "Vendor onboarding and field monitoring for Nestlé Ghana koko vendors.";
 
 /**
- * Nestlé Ghana brand palette (agency-provided).
+ * Dual-brand palette — Ideal Milk (cream tin, gold banner) and Carnation Milk (crimson).
  */
-export const NESTLE_BROWN_DARKEST = "#3f2103";
-export const NESTLE_BROWN_DARK = "#654d35";
-export const NESTLE_BROWN_MID = "#8c7a68";
-export const NESTLE_BROWN_LIGHT = "#b2a69a";
-export const NESTLE_BROWN_LIGHTEST = "#d9d3cd";
+export const CARNATION_RED = "#c8102e";
+export const CARNATION_RED_DEEP = "#8b0e22";
+export const CARNATION_ROSE = "#e85a6b";
+export const CARNATION_BLUSH = "#fce8eb";
+
+export const IDEAL_CREAM = "#fff8ee";
+export const IDEAL_GOLD = "#f0c014";
+export const IDEAL_GOLD_DEEP = "#c99208";
+export const IDEAL_COCOA = "#3d181c";
+
+/** @deprecated Use Carnation / Ideal tokens. Kept so existing imports keep working. */
+export const IDEAL_NAVY = IDEAL_COCOA;
+export const IDEAL_BLUE = CARNATION_RED;
+export const IDEAL_BLUE_MID = CARNATION_ROSE;
+export const IDEAL_BLUE_LIGHT = CARNATION_BLUSH;
+export const NESTLE_BROWN_DARKEST = IDEAL_COCOA;
+export const NESTLE_BROWN_DARK = CARNATION_RED;
+export const NESTLE_BROWN_MID = CARNATION_ROSE;
+export const NESTLE_BROWN_LIGHT = CARNATION_BLUSH;
+export const NESTLE_BROWN_LIGHTEST = IDEAL_CREAM;
 
 /** Primary brand color — used for theme-color / PWA chrome. */
-export const NESTLE_PRIMARY = NESTLE_BROWN_DARKEST;
+export const NESTLE_PRIMARY = CARNATION_RED;
 
 /** Nestlé bird mark (`public/icons/logo.svg`). */
 export const LOGO_SRC = "/icons/logo.svg";

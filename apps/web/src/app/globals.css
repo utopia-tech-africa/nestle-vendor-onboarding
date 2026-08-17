@@ -3,46 +3,46 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Nestlé Ghana brand palette */
-  --background: #faf9f8;
-  --foreground: #3f2103;
+  /* Ideal Milk cream + gold, Carnation crimson */
+  --background: #fff8ee;
+  --foreground: #3d181c;
   --card: #ffffff;
-  --card-foreground: #3f2103;
+  --card-foreground: #3d181c;
   --popover: #ffffff;
-  --popover-foreground: #3f2103;
+  --popover-foreground: #3d181c;
 
-  --primary: #3f2103;
-  --primary-foreground: #d9d3cd;
+  --primary: #c8102e;
+  --primary-foreground: #ffffff;
 
-  --secondary: #654d35;
-  --secondary-foreground: #d9d3cd;
+  --secondary: #f0c014;
+  --secondary-foreground: #3d181c;
 
-  --muted: #d9d3cd;
-  --muted-foreground: #654d35;
+  --muted: #f3e8d8;
+  --muted-foreground: #7a4548;
 
-  --accent: #b2a69a;
-  --accent-foreground: #3f2103;
+  --accent: #f0c014;
+  --accent-foreground: #3d181c;
 
   --destructive: #9b2c2c;
   --destructive-foreground: #fafafa;
-  --border: #b2a69a;
-  --input: #b2a69a;
-  --ring: #3f2103;
+  --border: #e8d4c4;
+  --input: #e8d4c4;
+  --ring: #c8102e;
 
-  --chart-1: #3f2103;
-  --chart-2: #654d35;
-  --chart-3: #8c7a68;
-  --chart-4: #b2a69a;
-  --chart-5: #d9d3cd;
+  --chart-1: #c8102e;
+  --chart-2: #f0c014;
+  --chart-3: #8b0e22;
+  --chart-4: #e85a6b;
+  --chart-5: #c99208;
 
-  --sidebar: #d9d3cd;
-  --sidebar-foreground: #3f2103;
-  --sidebar-primary: #3f2103;
-  --sidebar-primary-foreground: #d9d3cd;
+  --sidebar: #fce8eb;
+  --sidebar-foreground: #3d181c;
+  --sidebar-primary: #c8102e;
+  --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #ffffff;
-  --sidebar-accent-foreground: #3f2103;
-  --sidebar-border: #b2a69a;
-  --sidebar-ring: #3f2103;
+  --sidebar-accent-foreground: #3d181c;
+  --sidebar-border: #e8d4c4;
+  --sidebar-ring: #c8102e;
 
   /* Typography & Layout Defaults */
   --font-sans: Geist Mono, ui-monospace, monospace;
@@ -68,45 +68,45 @@
 }
 
 .dark {
-  --background: #2a1602;
-  --foreground: #d9d3cd;
-  --card: #3f2103;
-  --card-foreground: #d9d3cd;
-  --popover: #2a1602;
-  --popover-foreground: #d9d3cd;
+  --background: #1a0b0e;
+  --foreground: #fff8ee;
+  --card: #2a1216;
+  --card-foreground: #fff8ee;
+  --popover: #1a0b0e;
+  --popover-foreground: #fff8ee;
 
-  --primary: #d9d3cd;
-  --primary-foreground: #3f2103;
+  --primary: #f0c014;
+  --primary-foreground: #3d181c;
 
-  --secondary: #b2a69a;
-  --secondary-foreground: #3f2103;
+  --secondary: #c8102e;
+  --secondary-foreground: #fff8ee;
 
-  --muted: #654d35;
-  --muted-foreground: #d9d3cd;
+  --muted: #3d181c;
+  --muted-foreground: #e8b8bc;
 
-  --accent: #8c7a68;
-  --accent-foreground: #d9d3cd;
+  --accent: #f0c014;
+  --accent-foreground: #3d181c;
 
   --destructive: #ef4444;
   --destructive-foreground: #fafafa;
-  --border: #8c7a68;
-  --input: #8c7a68;
-  --ring: #d9d3cd;
+  --border: #5c2a30;
+  --input: #5c2a30;
+  --ring: #f0c014;
 
-  --chart-1: #d9d3cd;
-  --chart-2: #b2a69a;
-  --chart-3: #8c7a68;
-  --chart-4: #654d35;
-  --chart-5: #3f2103;
+  --chart-1: #f0c014;
+  --chart-2: #e85a6b;
+  --chart-3: #c8102e;
+  --chart-4: #c99208;
+  --chart-5: #8b0e22;
 
-  --sidebar: #3f2103;
-  --sidebar-foreground: #d9d3cd;
-  --sidebar-primary: #d9d3cd;
-  --sidebar-primary-foreground: #3f2103;
-  --sidebar-accent: #654d35;
-  --sidebar-accent-foreground: #d9d3cd;
-  --sidebar-border: #8c7a68;
-  --sidebar-ring: #d9d3cd;
+  --sidebar: #2a1216;
+  --sidebar-foreground: #fff8ee;
+  --sidebar-primary: #f0c014;
+  --sidebar-primary-foreground: #3d181c;
+  --sidebar-accent: #3d181c;
+  --sidebar-accent-foreground: #fff8ee;
+  --sidebar-border: #5c2a30;
+  --sidebar-ring: #f0c014;
 }
 
 @theme inline {
