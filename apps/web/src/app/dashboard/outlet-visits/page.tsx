@@ -5,6 +5,7 @@ import Link from "next/link";
 import { type ReactElement, useMemo, useState } from "react";
 
 import { BoneyardInlineFallback } from "@/components/boneyard/boneyard-inline-fallback";
+import { VendorAvatar } from "@/components/vendor-photos";
 import { useAuthStore } from "@/lib/auth/auth-store";
 import { calmMutedLinkClass, calmPrimaryButtonInlineClass } from "@/lib/calm-ui";
 
@@ -121,11 +122,14 @@ export default function FieldVendorsHubPage(): ReactElement {
                   .join(" · ");
                 return (
                   <li key={vendor.id} className="flex items-center justify-between gap-3 py-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-foreground">{vendor.name}</p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {place.length > 0 ? place : vendor.category}
-                      </p>
+                    <div className="flex min-w-0 items-center gap-3">
+                      <VendorAvatar outlet={vendor} size="sm" />
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-foreground">{vendor.name}</p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {place.length > 0 ? place : vendor.category}
+                        </p>
+                      </div>
                     </div>
                     <Link
                       href={fieldVendorVisitHref(vendor.id)}
@@ -156,10 +160,15 @@ export default function FieldVendorsHubPage(): ReactElement {
                     return (
                       <tr key={vendor.id} className="border-b border-border/80 last:border-0">
                         <td className="py-3 pr-3">
-                          <p className="font-medium text-foreground">{vendor.name}</p>
-                          {vendor.contactName ? (
-                            <p className="text-xs text-muted-foreground">{vendor.contactName}</p>
-                          ) : null}
+                          <div className="flex items-center gap-3">
+                            <VendorAvatar outlet={vendor} size="sm" />
+                            <div className="min-w-0">
+                              <p className="font-medium text-foreground">{vendor.name}</p>
+                              {vendor.contactName ? (
+                                <p className="text-xs text-muted-foreground">{vendor.contactName}</p>
+                              ) : null}
+                            </div>
+                          </div>
                         </td>
                         <td className="py-3 pr-3 text-muted-foreground">{vendor.category}</td>
                         <td className="py-3 pr-3 text-muted-foreground">

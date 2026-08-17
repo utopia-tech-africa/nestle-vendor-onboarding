@@ -102,7 +102,17 @@ const outletSelect = {
   isActive: true,
   createdAt: true,
   updatedAt: true,
-  region: { select: { id: true, name: true, slug: true } }
+  region: { select: { id: true, name: true, slug: true } },
+  onboardingPhotos: {
+    select: {
+      id: true,
+      category: true,
+      cloudinaryPublicId: true,
+      cloudinaryUrl: true,
+      mimeType: true
+    },
+    orderBy: { createdAt: "asc" }
+  }
 } satisfies Prisma.OutletSelect;
 
 type OutletWriteData = {
@@ -162,6 +172,16 @@ export class OutletRepository {
     return this.prisma.outlet.findUnique({
       where: { id },
       select: outletSelect
+    });
+  }
+
+  public findOnboardingPhotoBytes(ids: string[]) {
+    if (ids.length === 0) {
+      return Promise.resolve([]);
+    }
+    return this.prisma.outletOnboardingPhoto.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, mimeType: true, imageBytes: true }
     });
   }
 

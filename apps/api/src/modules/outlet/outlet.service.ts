@@ -7,7 +7,9 @@ import {
 } from "@nestjs/common";
 
 import type { AuthenticatedUser, UserRole } from "../../common/types/authenticated-user.type";
+import type { VisitPhotoCategory } from "../../generated/prisma/client";
 import { CloudinaryService } from "../cloudinary/cloudinary.service";
+import { StoredImageService } from "../cloudinary/stored-image.service";
 import { haversineDistanceMeters } from "../geofence/haversine";
 import { ReverseGeocodeService } from "../me/reverse-geocode.service";
 import { resolveOutletPhoto } from "../me/stored-outlet-photo";
@@ -30,6 +32,18 @@ type OutletRow = {
   isActive: boolean;
 };
 
+type OnboardingPhotoRow = {
+  id: string;
+  category: VisitPhotoCategory;
+  cloudinaryPublicId: string | null;
+  cloudinaryUrl: string | null;
+  mimeType: string | null;
+};
+
+type OutletWithOnboardingPhotos = {
+  onboardingPhotos: OnboardingPhotoRow[];
+};
+
 @Injectable()
 export class OutletService {
   public constructor(
@@ -37,8 +51,61 @@ export class OutletService {
     @Inject(ReverseGeocodeService) private readonly reverseGeocode: ReverseGeocodeService,
     @Inject(OpsAlertService) private readonly opsAlertService: OpsAlertService,
     @Inject(CloudinaryService) private readonly cloudinaryService: CloudinaryService,
+    @Inject(StoredImageService) private readonly storedImageService: StoredImageService,
     @Inject(MnotifySmsService) private readonly smsService: MnotifySmsService
   ) {}
+
+  private mapOnboardingPhotos(
+    photos: OnboardingPhotoRow[],
+    bytesById: Map<string, { mimeType: string | null; imageBytes: Uint8Array | Buffer | null }>
+  ) {
+    return photos.flatMap((photo) => {
+      const stored = bytesById.get(photo.id);
+      const url = this.storedImageService.resolveDataUrl({
+        hasImage: Boolean(
+          photo.cloudinaryPublicId?.trim() ||
+            photo.cloudinaryUrl?.trim() ||
+            (stored?.imageBytes != null && stored.imageBytes.byteLength > 0)
+        ),
+        mimeType: stored?.mimeType ?? photo.mimeType,
+        image: stored?.imageBytes ?? null,
+        cloudinaryPublicId: photo.cloudinaryPublicId,
+        cloudinaryUrl: photo.cloudinaryUrl
+      });
+      if (url === null) {
+        return [];
+      }
+      return [{ id: photo.id, category: photo.category, cloudinaryUrl: url }];
+    });
+  }
+
+  private async decorateOutlets<T extends OutletWithOnboardingPhotos>(outlets: T[]) {
+    const missingIds = outlets.flatMap((outlet) =>
+      outlet.onboardingPhotos
+        .filter((photo) => {
+          const publicId = photo.cloudinaryPublicId?.trim() ?? "";
+          const url = photo.cloudinaryUrl?.trim() ?? "";
+          return publicId.length === 0 && url.length === 0;
+        })
+        .map((photo) => photo.id)
+    );
+    const byteRows = await this.outletRepository.findOnboardingPhotoBytes(missingIds);
+    const bytesById = new Map(
+      byteRows.map((row) => [row.id, { mimeType: row.mimeType, imageBytes: row.imageBytes }])
+    );
+    return outlets.map(({ onboardingPhotos, ...outlet }) => ({
+      ...outlet,
+      onboardingPhotos: this.mapOnboardingPhotos(onboardingPhotos, bytesById)
+    }));
+  }
+
+  private async decorateOutlet<T extends OutletWithOnboardingPhotos>(outlet: T) {
+    const [decorated] = await this.decorateOutlets([outlet]);
+    if (decorated === undefined) {
+      throw new Error("Outlet photo mapping failed");
+    }
+    return decorated;
+  }
 
   private assertOutletManager(currentUser: AuthenticatedUser): void {
     if (!OUTLET_MANAGER_ROLES.has(currentUser.role)) {
@@ -166,15 +233,16 @@ export class OutletService {
     });
   }
 
-  public listForAdmin(currentUser: AuthenticatedUser) {
+  public async listForAdmin(currentUser: AuthenticatedUser) {
     this.assertOutletViewer(currentUser);
-    return this.outletRepository.findAll();
+    const rows = await this.outletRepository.findAll();
+    return this.decorateOutlets(rows);
   }
 
   public async createForAdmin(currentUser: AuthenticatedUser, dto: CreateOutletDto) {
     this.assertOutletManager(currentUser);
     const location = await this.buildAdminLocationFields(dto);
-    return this.outletRepository.create({
+    const created = await this.outletRepository.create({
       name: dto.name.trim(),
       category: dto.category.trim(),
       distributorName: (dto.distributorName ?? "N/A").trim(),
@@ -190,11 +258,13 @@ export class OutletService {
       ...this.profileFieldsFromCreate(dto),
       isActive: dto.isActive ?? true
     });
+    return this.decorateOutlet(created);
   }
 
-  public listForField(currentUser: AuthenticatedUser) {
+  public async listForField(currentUser: AuthenticatedUser) {
     this.assertFieldOutletAccess(currentUser);
-    return this.outletRepository.findAllActive();
+    const rows = await this.outletRepository.findAllActive();
+    return this.decorateOutlets(rows);
   }
 
   public async findActiveForField(currentUser: AuthenticatedUser, id: string): Promise<OutletRow> {
@@ -271,7 +341,7 @@ export class OutletService {
       message: `Hello ${dto.contactName.trim()}, you have been onboarded as a Nestlé Ghana koko vendor. Your vendor ID is ${created.vendorCode}.`
     });
 
-    return created;
+    return this.decorateOutlet(created);
   }
 
   public listActiveRegionsForField(currentUser: AuthenticatedUser) {
@@ -319,7 +389,7 @@ export class OutletService {
         ? await this.buildAdminLocationFields(locationInput)
         : null;
 
-    return this.outletRepository.update(id, {
+    const updated = await this.outletRepository.update(id, {
       ...(dto.name !== undefined ? { name: dto.name.trim() } : {}),
       ...(dto.category !== undefined ? { category: dto.category.trim() } : {}),
       ...(dto.distributorName !== undefined ? { distributorName: dto.distributorName.trim() } : {}),
@@ -343,6 +413,7 @@ export class OutletService {
       ...this.profileFieldsFromDto(dto),
       ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {})
     });
+    return this.decorateOutlet(updated);
   }
 
   public listVisitsForField(currentUser: AuthenticatedUser, limit: number) {

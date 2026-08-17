@@ -22,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select";
+import { VendorAvatar, VendorPhotoGallery } from "@/components/vendor-photos";
 import { useAdminRegionListRegions } from "@/lib/api/generated/client";
 import { ApiError } from "@/lib/api/problem-details";
 import { useAuthStore } from "@/lib/auth/auth-store";
@@ -453,11 +454,13 @@ const DetailRow = ({
 const VendorModal = ({
   title,
   subtitle,
+  portrait,
   onClose,
   children
 }: {
   title: string;
   subtitle?: ReactNode;
+  portrait?: ReactNode;
   onClose: () => void;
   children: ReactNode;
 }): ReactElement => (
@@ -475,11 +478,14 @@ const VendorModal = ({
       aria-labelledby="vendor-modal-title"
     >
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h2 id="vendor-modal-title" className="text-lg font-semibold text-foreground">
-            {title}
-          </h2>
-          {subtitle}
+        <div className="flex min-w-0 items-start gap-3">
+          {portrait}
+          <div className="min-w-0">
+            <h2 id="vendor-modal-title" className="text-lg font-semibold text-foreground">
+              {title}
+            </h2>
+            {subtitle}
+          </div>
         </div>
         <button
           type="button"
@@ -824,8 +830,13 @@ export default function OpsOutletsPage(): ReactElement {
                         {outlet.vendorCode ?? "—"}
                       </td>
                       <td className="py-3 pr-3">
-                        <p className="font-medium text-foreground">{outlet.name}</p>
-                        <p className="text-xs text-muted-foreground">{outlet.category}</p>
+                        <div className="flex items-center gap-3">
+                          <VendorAvatar outlet={outlet} size="sm" />
+                          <div className="min-w-0">
+                            <p className="font-medium text-foreground">{outlet.name}</p>
+                            <p className="text-xs text-muted-foreground">{outlet.category}</p>
+                          </div>
+                        </div>
                       </td>
                       <td className="py-3 pr-3 text-muted-foreground">{outlet.contactName ?? "—"}</td>
                       <td className="py-3 pr-3 text-muted-foreground">{outlet.contactPhone ?? "—"}</td>
@@ -889,6 +900,7 @@ export default function OpsOutletsPage(): ReactElement {
       {selectedOutlet !== null && editingOutlet === null ? (
         <VendorModal
           title={selectedOutlet.name}
+          portrait={<VendorAvatar outlet={selectedOutlet} size="lg" />}
           subtitle={
             <p className="mt-1 font-mono text-xs text-muted-foreground">
               {selectedOutlet.vendorCode ?? "No vendor ID yet"}
@@ -898,6 +910,7 @@ export default function OpsOutletsPage(): ReactElement {
             setSelectedId(null);
           }}
         >
+          <VendorPhotoGallery outlet={selectedOutlet} className="mt-5" />
           <dl className="mt-5 grid gap-4 sm:grid-cols-2">
             <DetailRow label="Vendor ID" value={selectedOutlet.vendorCode} />
             <div>

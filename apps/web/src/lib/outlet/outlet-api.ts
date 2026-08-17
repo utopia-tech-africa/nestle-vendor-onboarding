@@ -25,7 +25,36 @@ export type OutletRecord = {
   landmark: string | null;
   isActive: boolean;
   region?: { id: string; name: string; slug: string } | null;
+  onboardingPhotos?: OutletOnboardingPhoto[];
 };
+
+export type OutletOnboardingPhoto = {
+  id: string;
+  category: VisitPhotoCategory;
+  cloudinaryUrl: string | null;
+};
+
+export const ONBOARDING_PHOTO_LABELS: Record<VisitPhotoCategory, string> = {
+  vendor: "Vendor photo",
+  shop: "Store photo",
+  product_display: "Product display",
+  shelf_visibility: "Shelf visibility",
+  branding: "Branding materials",
+  competitor: "Competitor photo"
+};
+
+export const vendorProfilePhotoUrl = (
+  outlet: Pick<OutletRecord, "onboardingPhotos">
+): string | null =>
+  outlet.onboardingPhotos?.find((photo) => photo.category === "vendor" && photo.cloudinaryUrl)
+    ?.cloudinaryUrl ?? null;
+
+export const vendorGalleryPhotos = (
+  outlet: Pick<OutletRecord, "onboardingPhotos">
+): OutletOnboardingPhoto[] =>
+  (outlet.onboardingPhotos ?? []).filter(
+    (photo) => photo.category !== "vendor" && photo.cloudinaryUrl != null
+  );
 
 export type OutletProfileFields = {
   contactPhoneSecondary?: string;

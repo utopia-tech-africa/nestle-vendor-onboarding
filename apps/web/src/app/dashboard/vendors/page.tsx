@@ -6,6 +6,7 @@ import { type ReactElement, useMemo, useState } from "react";
 
 import { BoneyardInlineFallback } from "@/components/boneyard/boneyard-inline-fallback";
 import { outletMapsUrl } from "@/components/outlet-map-preview";
+import { VendorAvatar, VendorPhotoGallery } from "@/components/vendor-photos";
 import { useAuthStore } from "@/lib/auth/auth-store";
 import { calmMutedLinkClass } from "@/lib/calm-ui";
 import { listOutlets, type OutletRecord } from "@/lib/outlet/outlet-api";
@@ -104,44 +105,47 @@ export default function ClientVendorsPage(): ReactElement {
                 className="rounded-lg border border-border bg-muted/20 p-4 dark:bg-muted/10"
               >
                 <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="font-medium text-foreground">{outlet.name}</p>
-                    {outlet.vendorCode ? (
-                      <p className="font-mono text-xs text-foreground">{outlet.vendorCode}</p>
-                    ) : null}
-                    <p className="text-xs text-muted-foreground">
-                      {outlet.category}
-                      {outlet.contactName ? ` · ${outlet.contactName}` : ""}
-                      {outlet.contactPhone ? ` · ${outlet.contactPhone}` : ""}
-                      {outlet.contactPhoneSecondary ? ` · ${outlet.contactPhoneSecondary}` : ""}
-                    </p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {[
-                        outlet.district,
-                        outlet.locationArea,
-                        outlet.landmark,
-                        outlet.region?.name,
-                        outlet.yearsInBusiness != null
-                          ? `${String(outlet.yearsInBusiness)} yrs`
-                          : null
-                      ]
-                        .filter((part) => part != null && String(part).trim().length > 0)
-                        .join(" · ") || "No location details"}
-                    </p>
-                    {outlet.latitude !== null && outlet.longitude !== null ? (
-                      <p className="mt-1 text-xs">
-                        <a
-                          href={outletMapsUrl(outlet.latitude, outlet.longitude)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-primary underline-offset-4 hover:underline"
-                        >
-                          {outlet.latitude.toFixed(5)}, {outlet.longitude.toFixed(5)} — Maps
-                        </a>
+                  <div className="flex min-w-0 items-start gap-3">
+                    <VendorAvatar outlet={outlet} size="md" />
+                    <div className="min-w-0">
+                      <p className="font-medium text-foreground">{outlet.name}</p>
+                      {outlet.vendorCode ? (
+                        <p className="font-mono text-xs text-foreground">{outlet.vendorCode}</p>
+                      ) : null}
+                      <p className="text-xs text-muted-foreground">
+                        {outlet.category}
+                        {outlet.contactName ? ` · ${outlet.contactName}` : ""}
+                        {outlet.contactPhone ? ` · ${outlet.contactPhone}` : ""}
+                        {outlet.contactPhoneSecondary ? ` · ${outlet.contactPhoneSecondary}` : ""}
                       </p>
-                    ) : (
-                      <p className="mt-1 text-xs text-muted-foreground">No map pin</p>
-                    )}
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {[
+                          outlet.district,
+                          outlet.locationArea,
+                          outlet.landmark,
+                          outlet.region?.name,
+                          outlet.yearsInBusiness != null
+                            ? `${String(outlet.yearsInBusiness)} yrs`
+                            : null
+                        ]
+                          .filter((part) => part != null && String(part).trim().length > 0)
+                          .join(" · ") || "No location details"}
+                      </p>
+                      {outlet.latitude !== null && outlet.longitude !== null ? (
+                        <p className="mt-1 text-xs">
+                          <a
+                            href={outletMapsUrl(outlet.latitude, outlet.longitude)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary underline-offset-4 hover:underline"
+                          >
+                            {outlet.latitude.toFixed(5)}, {outlet.longitude.toFixed(5)} — Maps
+                          </a>
+                        </p>
+                      ) : (
+                        <p className="mt-1 text-xs text-muted-foreground">No map pin</p>
+                      )}
+                    </div>
                   </div>
                   <div className="flex flex-col items-end gap-2">
                     <span
@@ -161,6 +165,7 @@ export default function ClientVendorsPage(): ReactElement {
                     </Link>
                   </div>
                 </div>
+                <VendorPhotoGallery outlet={outlet} className="mt-3" />
               </li>
             ))}
           </ul>
