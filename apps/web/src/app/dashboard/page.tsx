@@ -66,9 +66,8 @@ export default function DashboardHomePage(): ReactElement {
         <section className="rounded-xl border border-border bg-card/80 p-4 shadow-sm dark:bg-card/50">
           <h2 className="text-base font-semibold text-foreground">Vendors</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            Register koko vendors with photos, then record visits (questionnaire, footfall,
-            visibility, competitors) on a separate screen — works offline and syncs when you
-            reconnect.
+            Register koko vendors with photos, then record visits (questionnaire, visibility,
+            competitors) on a separate screen — works offline and syncs when you reconnect.
           </p>
           <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1">
             <Link href="/dashboard/outlet-visits/new" className={calmMutedLinkClass}>

@@ -128,48 +128,63 @@ export const buildDefaultQuestionnaireQuestions = (overrides?: {
       sortOrder: 8
     },
     {
+      prompt: "Estimated customer footfall",
+      helpText: "Typical number of customers at this stall in a day.",
+      type: QuestionTypeEnum.number,
+      required: false,
+      sortOrder: 9
+    },
+    {
       prompt: "Peak shopping periods",
       type: QuestionTypeEnum.multi_choice,
       options: labels(PEAK_PERIODS),
       required: false,
-      sortOrder: 9
+      sortOrder: 10
+    },
+    {
+      prompt: "Traffic category",
+      type: QuestionTypeEnum.single_choice,
+      options: ["Low", "Medium", "High"],
+      required: false,
+      sortOrder: 11
+    },
+    {
+      prompt: "Manual footfall count",
+      helpText: "Optional count you did during this visit.",
+      type: QuestionTypeEnum.number,
+      required: false,
+      sortOrder: 12
     },
     {
       prompt: "Interest in stocking Nestlé products",
       type: QuestionTypeEnum.single_choice,
       options: ["Yes", "No", "Maybe"],
       required: true,
-      sortOrder: 10
+      sortOrder: 13
     },
     {
       prompt: "Preferred supplier",
       type: QuestionTypeEnum.text,
       required: false,
-      sortOrder: 11
-    },
-    {
-      prompt: "Number of customers per day",
-      type: QuestionTypeEnum.number,
-      required: false,
-      sortOrder: 12
+      sortOrder: 14
     },
     {
       prompt: "Challenges faced",
       type: QuestionTypeEnum.textarea,
       required: false,
-      sortOrder: 13
+      sortOrder: 15
     },
     {
       prompt: "Existing promotions",
       type: QuestionTypeEnum.textarea,
       required: false,
-      sortOrder: 14
+      sortOrder: 16
     },
     {
       prompt: "Additional comments",
       type: QuestionTypeEnum.textarea,
       required: false,
-      sortOrder: 15
+      sortOrder: 17
     }
   ];
 };

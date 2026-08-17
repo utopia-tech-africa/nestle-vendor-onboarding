@@ -455,9 +455,6 @@ export class MeService {
     if (payload.questionnaire === undefined) {
       incompleteReasons.push("questionnaire");
     }
-    if (payload.trafficCategory === undefined && payload.footfallEstimated === undefined) {
-      incompleteReasons.push("footfall");
-    }
     if (payload.nestleProductAvailable === undefined && payload.outOfStock === undefined) {
       incompleteReasons.push("visibility");
     }

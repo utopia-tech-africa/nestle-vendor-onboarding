@@ -210,8 +210,9 @@ export default function OpsQuestionnairesPage(): ReactElement {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Questionnaires</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Build and activate visit questions without an app update. Seed Nestlé default refreshes
-            gender, role, age, employees, products, and competitor dropdowns from the catalogs.
+            These questions are the visit form — including footfall. Edit them here without an app
+            update. Seed Nestlé default refreshes gender, role, age, employees, products, footfall,
+            and competitor dropdowns from the catalogs.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">

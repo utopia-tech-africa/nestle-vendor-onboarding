@@ -77,7 +77,7 @@ export default function FieldVendorsHubPage(): ReactElement {
           <span>
             <span className="block text-sm font-semibold">Record visit</span>
             <span className="mt-1 block text-sm text-muted-foreground">
-              Questionnaire, footfall, visibility, and competitors.
+              Questionnaire, visibility, and competitors.
             </span>
           </span>
         </Link>

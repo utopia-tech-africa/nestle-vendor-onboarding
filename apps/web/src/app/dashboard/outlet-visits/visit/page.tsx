@@ -3,7 +3,7 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Suspense, type ReactElement, type SyntheticEvent, useEffect, useMemo, useState } from "react";
+import { Suspense, type ReactElement, type SyntheticEvent, useMemo, useState } from "react";
 
 import { BoneyardInlineFallback } from "@/components/boneyard/boneyard-inline-fallback";
 import { CatalogCheckboxGroup, CatalogSelect } from "@/components/catalog-fields";
@@ -28,8 +28,7 @@ import {
   getActiveQuestionnaire,
   getFieldCatalogs,
   vendorLabel,
-  type CreateOutletVisitPayload,
-  type TrafficCategory
+  type CreateOutletVisitPayload
 } from "@/lib/outlet/outlet-api";
 import { toast } from "@/lib/toast";
 
@@ -53,13 +52,16 @@ function RecordVendorVisitPageInner(): ReactElement {
   const online = useNetworkOnline();
   const { vendorOptions } = useFieldVendorOptions(accessToken);
 
-  const [outletId, setOutletId] = useState("");
+  const outletIdFromUrl = searchParams.get("outletId")?.trim() ?? "";
+  const [pickedOutletId, setPickedOutletId] = useState<string | null>(null);
+  const [prevOutletIdFromUrl, setPrevOutletIdFromUrl] = useState(outletIdFromUrl);
+  if (outletIdFromUrl !== prevOutletIdFromUrl) {
+    setPrevOutletIdFromUrl(outletIdFromUrl);
+    setPickedOutletId(null);
+  }
+  const outletId = pickedOutletId ?? outletIdFromUrl;
   const [isCapturingVisitLocation, setIsCapturingVisitLocation] = useState(false);
   const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [footfallEstimated, setFootfallEstimated] = useState("");
-  const [peakPeriods, setPeakPeriods] = useState<string[]>([]);
-  const [trafficCategory, setTrafficCategory] = useState<TrafficCategory | "">("");
-  const [footfallManualCount, setFootfallManualCount] = useState("");
   const [nestleProductAvailable, setNestleProductAvailable] = useState<boolean | null>(null);
   const [nestleProducts, setNestleProducts] = useState<string[]>([]);
   const [productPlacementNotes, setProductPlacementNotes] = useState("");
@@ -71,13 +73,6 @@ function RecordVendorVisitPageInner(): ReactElement {
   const [stockLevelNotes, setStockLevelNotes] = useState("");
   const [outOfStock, setOutOfStock] = useState<boolean | null>(null);
   const [competitors, setCompetitors] = useState<CompetitorDraft[]>([blankCompetitor()]);
-
-  useEffect(() => {
-    const fromQuery = searchParams.get("outletId")?.trim() ?? "";
-    if (fromQuery.length > 0) {
-      setOutletId(fromQuery);
-    }
-  }, [searchParams]);
 
   const catalogsQuery = useQuery({
     queryKey: fieldCatalogsQueryKey,
@@ -100,6 +95,10 @@ function RecordVendorVisitPageInner(): ReactElement {
     return vendorOptions.find((row) => row.id === outletId) ?? null;
   }, [outletId, vendorOptions]);
 
+  const selectedVendorLabel = selectedOutlet
+    ? `${vendorLabel(selectedOutlet)}${selectedOutlet.locationArea ? ` · ${selectedOutlet.locationArea}` : ""}`
+    : null;
+
   const createVisitMutation = useMutation({
     mutationFn: async (payload: CreateOutletVisitPayload) =>
       createOutletVisit(accessToken ?? "", payload)
@@ -107,10 +106,6 @@ function RecordVendorVisitPageInner(): ReactElement {
 
   const resetVisitForm = (): void => {
     setAnswers({});
-    setFootfallEstimated("");
-    setPeakPeriods([]);
-    setTrafficCategory("");
-    setFootfallManualCount("");
     setNestleProductAvailable(null);
     setNestleProducts([]);
     setProductPlacementNotes("");
@@ -163,14 +158,6 @@ function RecordVendorVisitPageInner(): ReactElement {
       outletId: targetOutletId,
       latitude,
       longitude,
-      ...(footfallEstimated.trim()
-        ? { footfallEstimated: Number.parseInt(footfallEstimated, 10) }
-        : {}),
-      ...(peakPeriods.length > 0 ? { footfallPeakPeriods: peakPeriods.join(", ") } : {}),
-      ...(trafficCategory ? { trafficCategory } : {}),
-      ...(footfallManualCount.trim()
-        ? { footfallManualCount: Number.parseInt(footfallManualCount, 10) }
-        : {}),
       ...(nestleProductAvailable !== null || nestleProducts.length > 0
         ? { nestleProductAvailable: nestleProductAvailable === true || nestleProducts.length > 0 }
         : {}),
@@ -261,7 +248,7 @@ function RecordVendorVisitPageInner(): ReactElement {
         </p>
         <h1 className="mt-2 text-xl font-semibold tracking-tight sm:text-2xl">Record visit</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Capture questionnaire, footfall, visibility, and competitor intel.
+          Capture the questionnaire, Nestlé visibility, and competitor intel.
         </p>
       </div>
 
@@ -271,14 +258,18 @@ function RecordVendorVisitPageInner(): ReactElement {
             <div>
               <p className="text-sm font-medium">Vendor</p>
               <Select
+                key={outletIdFromUrl || SELECT_NONE}
                 value={outletId || SELECT_NONE}
-                onValueChange={(value) => setOutletId(value === SELECT_NONE ? "" : value)}
+                onValueChange={(value) => setPickedOutletId(value === SELECT_NONE ? "" : value)}
               >
                 <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="Select vendor" />
+                  <SelectValue placeholder="Select vendor">{selectedVendorLabel}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={SELECT_NONE}>Select vendor</SelectItem>
+                  {outletId && selectedOutlet === null ? (
+                    <SelectItem value={outletId}>Selected vendor</SelectItem>
+                  ) : null}
                   {vendorOptions.map((outlet) => (
                     <SelectItem key={outlet.id} value={outlet.id}>
                       {vendorLabel(outlet)}
@@ -403,58 +394,6 @@ function RecordVendorVisitPageInner(): ReactElement {
             </p>
           )}
 
-          <div className="grid gap-6 lg:grid-cols-2">
-          <div className="space-y-3">
-            <p className="text-sm font-medium">Footfall</p>
-            <label className="text-sm">
-              Estimated customer footfall
-              <input
-                className={fieldVendorInputClass}
-                inputMode="numeric"
-                value={footfallEstimated}
-                onChange={(e) => setFootfallEstimated(e.target.value)}
-              />
-            </label>
-            <label className="text-sm">
-              Peak shopping periods
-              <CatalogCheckboxGroup
-                options={catalogs.peakPeriods}
-                selected={peakPeriods}
-                onChange={setPeakPeriods}
-              />
-            </label>
-            <label className="text-sm">
-              Traffic category
-              <Select
-                value={trafficCategory.length > 0 ? trafficCategory : SELECT_NONE}
-                onValueChange={(value) =>
-                  setTrafficCategory(
-                    value === SELECT_NONE ? "" : (value as TrafficCategory)
-                  )
-                }
-              >
-                <SelectTrigger className="mt-1 h-10 w-full">
-                  <SelectValue placeholder="Select" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={SELECT_NONE}>Select</SelectItem>
-                  <SelectItem value="LOW">Low</SelectItem>
-                  <SelectItem value="MEDIUM">Medium</SelectItem>
-                  <SelectItem value="HIGH">High</SelectItem>
-                </SelectContent>
-              </Select>
-            </label>
-            <label className="text-sm">
-              Manual count (optional)
-              <input
-                className={fieldVendorInputClass}
-                inputMode="numeric"
-                value={footfallManualCount}
-                onChange={(e) => setFootfallManualCount(e.target.value)}
-              />
-            </label>
-          </div>
-
           <div className="space-y-3">
             <p className="text-sm font-medium">Nestlé visibility</p>
             <label className="flex items-center gap-2 text-sm">
@@ -524,7 +463,6 @@ function RecordVendorVisitPageInner(): ReactElement {
                 onChange={(e) => setStockLevelNotes(e.target.value)}
               />
             </label>
-          </div>
           </div>
 
           <div className="space-y-3">
