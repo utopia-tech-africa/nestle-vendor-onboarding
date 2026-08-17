@@ -19,8 +19,11 @@ export const resolveStoredImageDataUrl = (
     if (signed !== null) {
       return signed;
     }
-    const stored = fields.cloudinaryUrl?.trim() ?? "";
-    return stored.length > 0 ? stored : null;
+  }
+
+  const stored = fields.cloudinaryUrl?.trim() ?? "";
+  if (stored.length > 0) {
+    return stored;
   }
 
   if (fields.mimeType !== null && fields.image !== null && fields.image.byteLength > 0) {

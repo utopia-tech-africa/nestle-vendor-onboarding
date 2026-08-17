@@ -165,12 +165,13 @@ export class CloudinaryService {
     };
 
     try {
-      return await readResource("authenticated");
+      return await readResource("upload");
     } catch {
-      return readResource("upload");
+      return readResource("authenticated");
     }
   }
 
+  /** Signed `/image/upload/...` URL for access_mode=authenticated assets. */
   public getAuthenticatedDeliveryUrl(publicId: string): string | null {
     if (!this.enabled) {
       return null;
@@ -182,7 +183,7 @@ export class CloudinaryService {
     const expiresAt = Math.floor(Date.now() / 1000) + DELIVERY_URL_TTL_SECONDS;
     return cloudinary.url(trimmed, {
       resource_type: "image",
-      type: "authenticated",
+      type: "upload",
       sign_url: true,
       secure: true,
       expires_at: expiresAt
