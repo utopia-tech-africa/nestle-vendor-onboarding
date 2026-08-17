@@ -8,6 +8,7 @@
     "dev": "tsx watch src/main.ts",
     "docs:openapi": "tsx src/scripts/export-openapi.ts",
     "lint": "eslint src --ext .ts",
+    "seed:regions": "tsx src/scripts/seed-regions.ts",
     "start": "node dist/main.js",
     "typecheck": "tsc --project tsconfig.json --noEmit"
   },

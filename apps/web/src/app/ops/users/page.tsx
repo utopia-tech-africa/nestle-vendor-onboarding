@@ -1,6 +1,7 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
 import { type SyntheticEvent, type ReactElement, useState } from "react";
 
 import { BoneyardInlineFallback } from "@/components/boneyard/boneyard-inline-fallback";
@@ -26,6 +27,7 @@ import { useAuthStore } from "@/lib/auth/auth-store";
 import { calmPrimaryButtonClass, calmSecondaryButtonClass } from "@/lib/calm-ui";
 import {
   type AdminUserRow,
+  type GeofenceRow,
   parseAdminUserFromOrval,
   parseAdminUsersFromOrval,
   parseGeofencesFromOrval,
@@ -55,6 +57,79 @@ const SELECT_NONE = "__none__";
 
 const toggleId = (ids: string[], id: string): string[] =>
   ids.includes(id) ? ids.filter((item) => item !== id) : [...ids, id];
+
+const WorkAreasField = ({
+  geofences,
+  isLoading,
+  isError,
+  selectedIds,
+  onToggle,
+  disabled
+}: {
+  geofences: GeofenceRow[];
+  isLoading: boolean;
+  isError: boolean;
+  selectedIds: string[];
+  onToggle: (id: string) => void;
+  disabled?: boolean;
+}): ReactElement => (
+  <div>
+    <p className="text-xs font-medium text-muted-foreground">Work areas</p>
+    <p className="mt-1 text-[11px] text-muted-foreground">
+      Clock-in is allowed only inside the selected radii. Leave empty to use any active work area
+      until you assign one.
+    </p>
+    {disabled ? (
+      <p className="mt-2 text-xs text-muted-foreground">
+        Switch the role to promoter to assign work areas.
+      </p>
+    ) : null}
+    {isLoading ? (
+      <p className="mt-2 text-xs text-muted-foreground">Loading work areas…</p>
+    ) : null}
+    {isError ? (
+      <p className="mt-2 text-xs text-destructive">Could not load work areas.</p>
+    ) : null}
+    {!isLoading && !isError && geofences.length === 0 ? (
+      <p className="mt-2 text-xs text-muted-foreground">
+        No work areas yet.{" "}
+        <Link href="/ops/geofences" className="text-primary underline-offset-4 hover:underline">
+          Create them under Work areas
+        </Link>
+        .
+      </p>
+    ) : null}
+    {!isLoading && !isError && geofences.length > 0 ? (
+      <ul className="mt-2 max-h-48 space-y-1 overflow-y-auto rounded-lg border border-border p-2">
+        {geofences.map((fence) => (
+          <li key={fence.id}>
+            <label
+              className={`flex items-center gap-2 text-sm text-foreground ${
+                disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"
+              }`}
+            >
+              <input
+                type="checkbox"
+                checked={selectedIds.includes(fence.id)}
+                disabled={disabled}
+                onChange={() => {
+                  onToggle(fence.id);
+                }}
+              />
+              <span>
+                {fence.label}
+                <span className="ml-1 text-xs text-muted-foreground">
+                  ({Math.round(fence.radiusMeters)} m
+                  {fence.isActive ? "" : " · inactive"})
+                </span>
+              </span>
+            </label>
+          </li>
+        ))}
+      </ul>
+    ) : null}
+  </div>
+);
 
 export default function OpsUsersPage(): ReactElement {
   const accessToken = useAuthStore((state) => state.accessToken);
@@ -388,43 +463,18 @@ export default function OpsUsersPage(): ReactElement {
               </SelectContent>
             </Select>
           </div>
-          {createRole === AdminUserCreateUserBodyRole.promoter ? (
-            <div className="sm:col-span-2 lg:col-span-3">
-              <p className="text-xs font-medium text-muted-foreground">Work areas</p>
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                Clock-in is allowed only inside the selected radii. Leave empty to use any active
-                work area until you assign one.
-              </p>
-              {(geofencesQuery.data ?? []).length === 0 ? (
-                <p className="mt-2 text-xs text-muted-foreground">
-                  No work areas yet. Create them under Work areas.
-                </p>
-              ) : (
-                <ul className="mt-2 max-h-40 space-y-1 overflow-y-auto rounded-lg border border-border p-2">
-                  {(geofencesQuery.data ?? []).map((fence) => (
-                    <li key={fence.id}>
-                      <label className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
-                        <input
-                          type="checkbox"
-                          checked={createGeofenceIds.includes(fence.id)}
-                          onChange={() => {
-                            setCreateGeofenceIds((current) => toggleId(current, fence.id));
-                          }}
-                        />
-                        <span>
-                          {fence.label}
-                          <span className="ml-1 text-xs text-muted-foreground">
-                            ({Math.round(fence.radiusMeters)} m
-                            {fence.isActive ? "" : " · inactive"})
-                          </span>
-                        </span>
-                      </label>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          ) : null}
+          <div className="sm:col-span-2 lg:col-span-3">
+            <WorkAreasField
+              geofences={geofencesQuery.data ?? []}
+              isLoading={geofencesQuery.isLoading}
+              isError={geofencesQuery.isError}
+              selectedIds={createGeofenceIds}
+              disabled={createRole !== AdminUserCreateUserBodyRole.promoter}
+              onToggle={(id) => {
+                setCreateGeofenceIds((current) => toggleId(current, id));
+              }}
+            />
+          </div>
           <div className="flex items-end sm:col-span-2 lg:col-span-3">
             <button
               type="submit"
@@ -601,7 +651,7 @@ export default function OpsUsersPage(): ReactElement {
       {editing ? (
         <div className="fixed inset-0 z-1000 flex items-end justify-center bg-background/70 p-4 backdrop-blur-sm sm:items-center">
           <div
-            className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-border bg-card p-6 shadow-xl"
+            className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-border bg-card p-6 shadow-xl"
             role="dialog"
             aria-labelledby="edit-user-title"
           >
@@ -693,6 +743,16 @@ export default function OpsUsersPage(): ReactElement {
                   Assign a territory or choose &quot;None&quot; to remove the user&apos;s region.
                 </p>
               </div>
+              <WorkAreasField
+                geofences={geofencesQuery.data ?? []}
+                isLoading={geofencesQuery.isLoading}
+                isError={geofencesQuery.isError}
+                selectedIds={editGeofenceIds}
+                disabled={editRole !== AdminUserCreateUserBodyRole.promoter}
+                onToggle={(id) => {
+                  setEditGeofenceIds((current) => toggleId(current, id));
+                }}
+              />
               <div>
                 <label className="text-xs font-medium text-muted-foreground" htmlFor="eu-gender">
                   Gender
@@ -716,42 +776,6 @@ export default function OpsUsersPage(): ReactElement {
                   </SelectContent>
                 </Select>
               </div>
-              {editRole === AdminUserCreateUserBodyRole.promoter ? (
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground">Work areas</p>
-                  <p className="mt-1 text-[11px] text-muted-foreground">
-                    Clock-in is allowed only inside the selected radii.
-                  </p>
-                  {(geofencesQuery.data ?? []).length === 0 ? (
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      No work areas yet. Create them under Work areas.
-                    </p>
-                  ) : (
-                    <ul className="mt-2 max-h-40 space-y-1 overflow-y-auto rounded-lg border border-border p-2">
-                      {(geofencesQuery.data ?? []).map((fence) => (
-                        <li key={fence.id}>
-                          <label className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
-                            <input
-                              type="checkbox"
-                              checked={editGeofenceIds.includes(fence.id)}
-                              onChange={() => {
-                                setEditGeofenceIds((current) => toggleId(current, fence.id));
-                              }}
-                            />
-                            <span>
-                              {fence.label}
-                              <span className="ml-1 text-xs text-muted-foreground">
-                                ({Math.round(fence.radiusMeters)} m
-                                {fence.isActive ? "" : " · inactive"})
-                              </span>
-                            </span>
-                          </label>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              ) : null}
               <label className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
                 <input
                   type="checkbox"

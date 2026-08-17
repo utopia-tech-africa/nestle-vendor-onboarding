@@ -9,8 +9,8 @@ const geofenceRowSchema = z.object({
   centerLongitude: z.number(),
   radiusMeters: z.number(),
   isActive: z.boolean(),
-  createdAt: z.string(),
-  updatedAt: z.string()
+  createdAt: z.union([z.string(), z.date()]).optional(),
+  updatedAt: z.union([z.string(), z.date()]).optional()
 });
 
 export type GeofenceRow = z.infer<typeof geofenceRowSchema>;

@@ -789,7 +789,7 @@ export default function OpsOutletsPage(): ReactElement {
         ) : null}
         {filteredOutlets.length > 0 ? (
           <div className="mt-4 overflow-x-auto">
-            <table className="w-full min-w-180 border-collapse text-left text-sm">
+            <table className="w-full min-w-max border-collapse text-left text-sm">
               <thead>
                 <tr className="border-b border-border text-xs font-medium text-muted-foreground">
                   <th className="py-2 pr-3 font-medium">Vendor ID</th>
@@ -797,15 +797,11 @@ export default function OpsOutletsPage(): ReactElement {
                   <th className="py-2 pr-3 font-medium">Contact</th>
                   <th className="py-2 pr-3 font-medium">Phone</th>
                   <th className="py-2 pr-3 font-medium">Region</th>
-                  <th className="py-2 pr-3 font-medium">Location</th>
                   <th className="py-2 font-medium">Status</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredOutlets.map((outlet) => {
-                  const place = [outlet.district, outlet.locationArea]
-                    .filter((part) => part != null && part.trim().length > 0)
-                    .join(" · ");
                   const isSelected = selectedId === outlet.id;
                   return (
                     <tr
@@ -834,7 +830,6 @@ export default function OpsOutletsPage(): ReactElement {
                       <td className="py-3 pr-3 text-muted-foreground">{outlet.contactName ?? "—"}</td>
                       <td className="py-3 pr-3 text-muted-foreground">{outlet.contactPhone ?? "—"}</td>
                       <td className="py-3 pr-3 text-muted-foreground">{outlet.region?.name ?? "—"}</td>
-                      <td className="py-3 pr-3 text-muted-foreground">{place.length > 0 ? place : "—"}</td>
                       <td className="py-3">
                         <span className={statusBadgeClass(outlet.isActive)}>
                           {outlet.isActive ? "Active" : "Inactive"}
