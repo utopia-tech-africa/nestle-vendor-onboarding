@@ -149,8 +149,8 @@ const parseArgs = (
   const sendAll = argv.includes("--all");
   const resend = argv.includes("--resend");
   const onlyIndex = argv.indexOf("--only");
-  const onlyPhone =
-    onlyIndex >= 0 && argv[onlyIndex + 1] !== undefined ? normalizePhone(argv[onlyIndex + 1]) : null;
+  const onlyArg = onlyIndex >= 0 ? argv[onlyIndex + 1] : undefined;
+  const onlyPhone = onlyArg !== undefined ? normalizePhone(onlyArg) : null;
   if (sendAll && onlyPhone !== null) {
     throw new Error("Use either --only <phone> or --all, not both");
   }
