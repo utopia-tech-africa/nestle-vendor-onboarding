@@ -1,0 +1,62 @@
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import {
+  IsIn,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+  MinLength
+} from "class-validator";
+
+import { PhoneNumberField } from "../../../common/decorators/phone.decorators";
+
+export class SignInDto {
+  @ApiProperty({
+    type: String,
+    example: "0244123456",
+    description:
+      "Registered phone (international +… or local; may start with 0). Spaces and hyphens are stripped."
+  })
+  @PhoneNumberField()
+  public phone!: string;
+
+  @ApiProperty({ type: String, example: "P-12ab34cd", description: "Unique promoter code" })
+  @IsString()
+  @MinLength(3)
+  @MaxLength(64)
+  public uniqueCode!: string;
+
+  @ApiProperty({
+    type: String,
+    example: "promoter",
+    enum: ["promoter", "client", "supervisor", "admin"]
+  })
+  @IsIn(["promoter", "client", "supervisor", "admin"])
+  public role!: "promoter" | "client" | "supervisor" | "admin";
+
+  @ApiPropertyOptional({
+    description:
+      "Device latitude (decimal degrees). For promoters: required when at least one geofence is active (send with longitude). Clients, supervisors, and admins may omit coordinates.",
+    type: "number",
+    example: -1.286389
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  public latitude?: number;
+
+  @ApiPropertyOptional({
+    description:
+      "Device longitude (decimal degrees). For promoters: required with latitude when geofencing is enforced. Clients, supervisors, and admins may omit.",
+    type: "number",
+    example: 36.817223
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  public longitude?: number;
+}

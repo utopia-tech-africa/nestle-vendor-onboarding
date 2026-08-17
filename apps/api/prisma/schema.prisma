@@ -1,0 +1,464 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  promoter
+  client
+  supervisor
+  admin
+}
+
+enum Gender {
+  male
+  female
+  other
+}
+
+enum AuthProvider {
+  credentials
+  google
+}
+
+enum AttendanceKind {
+  clock_in
+  clock_out
+}
+
+enum VisitPhotoCategory {
+  vendor
+  shop
+  product_display
+  shelf_visibility
+  branding
+  competitor
+}
+
+enum TrafficCategory {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum QuestionType {
+  text
+  textarea
+  number
+  single_choice
+  multi_choice
+  boolean
+}
+
+enum OpsAlertKind {
+  missed_check_in
+  incomplete_visit
+  sync_failure
+  new_vendor
+  supervisor
+}
+
+enum OpsAlertSeverity {
+  info
+  warning
+  critical
+}
+
+enum VendorRole {
+  owner
+  worker
+}
+
+enum AgeBracket {
+  under_18
+  age_18_24
+  age_25_34
+  age_35_44
+  age_45_54
+  age_55_plus
+}
+
+enum EmployeeCountBracket {
+  none
+  one_two
+  three_five
+  six_ten
+  eleven_plus
+}
+
+enum AverageDailySalesBracket {
+  under_50
+  from_50_100
+  from_100_200
+  from_200_500
+  from_500_plus
+}
+
+model User {
+  id           String        @id @default(cuid())
+  fullName     String
+  email        String?       @unique
+  phone        String        @unique
+  uniqueCode   String        @unique
+  role         UserRole
+  isActive     Boolean       @default(true)
+  authProvider AuthProvider  @default(credentials)
+  googleSub    String?       @unique
+  gender       Gender?
+  regionId     String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  region       Region?       @relation(fields: [regionId], references: [id], onDelete: SetNull)
+  sessions     AuthSession[]
+  locations    LocationPing[]
+  outletVisits OutletVisit[]
+  workAreas    Geofence[]    @relation("PromoterWorkAreas")
+
+  @@index([regionId])
+}
+
+/// Sales territory (e.g. Greater Accra). Referenced by User.regionId and Outlet.regionId.
+model Region {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  /// Short prefix used in vendor IDs (e.g. GA for Greater Accra → GA-001).
+  code      String   @unique
+  name      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  users     User[]
+  outlets   Outlet[]
+}
+
+/// Per-prefix sequence for region-based vendor IDs (GA-001, UN-001, …).
+model VendorCodeCounter {
+  prefix  String @id
+  lastSeq Int    @default(0)
+}
+
+model AuthSession {
+  id               String    @id @default(cuid())
+  userId           String
+  refreshTokenHash String
+  userAgent        String?
+  ipAddress        String?
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  replacedById     String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model LocationPing {
+  id         String   @id @default(cuid())
+  userId     String
+  /// Whether this ping is a field clock-in or clock-out (legacy rows default to clock_in).
+  attendanceKind AttendanceKind @default(clock_in)
+  /// Optional matched geofence/outlet id used for outlet-distance validation.
+  geofenceId String?
+  /// Distance in meters from ping point to matched geofence center.
+  distanceToGeofenceMeters Float?
+  /// Duration from previous ping while still on same matched geofence.
+  dwellSecondsAtGeofence Int?
+  latitude   Float
+  longitude  Float
+  /// Human-readable place from reverse geocoding when the ping was saved (nullable for legacy rows).
+  placeLabel String?
+  /// Stored selfie blob for attendance verification (JPEG/PNG); omit from list APIs.
+  selfieMimeType String?
+  selfieImage    Bytes?
+  /// Cloudinary `public_id` when the selfie is stored externally (preferred).
+  selfieCloudinaryPublicId String?
+  /// Stable delivery URL returned at upload time (signed URLs generated on read when needed).
+  selfieCloudinaryUrl      String?
+  /// Mirrors presence of `selfieImage` without loading the blob in history queries.
+  hasSelfieVerification Boolean @default(false)
+  recordedAt DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, recordedAt(sort: Desc)])
+  @@index([geofenceId, recordedAt(sort: Desc)])
+}
+
+model OauthNonce {
+  id        String   @id @default(cuid())
+  nonce     String   @unique
+  provider  String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([expiresAt])
+}
+
+/// Circular work area for sign-in geofencing. Admins manage rows via /admin/geofences.
+model Geofence {
+  id              String   @id @default(cuid())
+  label           String
+  centerLatitude  Float
+  centerLongitude Float
+  radiusMeters    Float
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  promoters       User[]   @relation("PromoterWorkAreas")
+}
+
+/// Trade outlet / koko vendor managed by operations and visited by field staff.
+model Outlet {
+  id               String   @id @default(cuid())
+  /// Region-based public vendor ID (e.g. GA-001). Assigned at create and not reused.
+  vendorCode       String   @unique
+  name             String
+  /// Vendor type (e.g. koko seller, shop, market stall).
+  category         String
+  distributorName  String   @default("N/A")
+  /// Community / locality label (brief: Community).
+  locationArea     String
+  district         String?
+  regionId         String?
+  yearsInBusiness  Int?
+  /// WGS84 latitude when the outlet was pinned (e.g. promoter on-site creation).
+  latitude         Float?
+  /// WGS84 longitude when the outlet was pinned.
+  longitude        Float?
+  contactName      String?
+  /// Primary phone (welcome SMS and directory).
+  contactPhone     String?
+  contactPhoneSecondary String?
+  contactEmail     String?
+  vendorRole       VendorRole?
+  gender           Gender?
+  ageBracket       AgeBracket?
+  employeeCountBracket EmployeeCountBracket?
+  averageDailySalesBracket AverageDailySalesBracket?
+  landmark         String?
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  region           Region?  @relation(fields: [regionId], references: [id], onDelete: SetNull)
+  visits           OutletVisit[]
+  onboardingPhotos OutletOnboardingPhoto[]
+
+  @@index([regionId])
+  @@index([createdAt(sort: Desc)])
+}
+
+/// Visit/check-in execution at an outlet (photos + market intelligence).
+model OutletVisit {
+  id                        String   @id @default(cuid())
+  outletId                  String
+  userId                    String
+  latitude                  Float
+  longitude                 Float
+  outletPhotoMimeType       String?
+  outletPhotoImage          Bytes?
+  outletPhotoCloudinaryPublicId String?
+  outletPhotoCloudinaryUrl      String?
+  hasOutletPhoto            Boolean  @default(false)
+  stockAvailabilityNotes    String?
+  salesMadeNotes            String?
+  consumerEngagementNotes   String?
+
+  /// Footfall
+  footfallEstimated         Int?
+  footfallPeakPeriods       String?
+  trafficCategory           TrafficCategory?
+  footfallManualCount       Int?
+
+  /// Visibility monitoring (Nestlé)
+  nestleProductAvailable    Boolean?
+  /// JSON string array of catalog Nestlé product labels.
+  nestleProductsJson        String?
+  productPlacementNotes     String?
+  shelfVisibilityNotes      String?
+  posMaterialsPresent       Boolean?
+  promotionalMaterialsPresent Boolean?
+  stockLevelNotes           String?
+  outOfStock                Boolean?
+  visibilityScore           Float?
+
+  /// Whether required visit modules were completed (questionnaire + core intel).
+  isComplete                Boolean  @default(true)
+  incompleteReasons         String?
+
+  checkedInAt               DateTime @default(now())
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+  outlet                    Outlet   @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  user                      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  photos                    OutletVisitPhoto[]
+  competitorObservations    CompetitorObservation[]
+  questionnaireResponses    QuestionnaireResponse[]
+
+  @@index([outletId, checkedInAt(sort: Desc)])
+  @@index([userId, checkedInAt(sort: Desc)])
+  @@index([checkedInAt(sort: Desc)])
+}
+
+model OutletOnboardingPhoto {
+  id                 String             @id @default(cuid())
+  outletId           String
+  category           VisitPhotoCategory @default(vendor)
+  cloudinaryPublicId String?
+  cloudinaryUrl      String?
+  mimeType           String?
+  imageBytes         Bytes?
+  createdAt          DateTime           @default(now())
+  outlet             Outlet             @relation(fields: [outletId], references: [id], onDelete: Cascade)
+
+  @@index([outletId, category])
+}
+
+model OutletVisitPhoto {
+  id                   String             @id @default(cuid())
+  visitId              String
+  category             VisitPhotoCategory
+  cloudinaryPublicId   String?
+  cloudinaryUrl        String?
+  mimeType             String?
+  /// Optional inline bytes for offline/legacy; prefer Cloudinary.
+  imageBytes           Bytes?
+  createdAt            DateTime           @default(now())
+  visit                OutletVisit        @relation(fields: [visitId], references: [id], onDelete: Cascade)
+
+  @@index([visitId, category])
+}
+
+model CompetitorObservation {
+  id              String   @id @default(cuid())
+  visitId         String
+  brandName       String
+  brandNameOther  String?
+  /// JSON string array of catalog product labels for this brand.
+  productsJson    String?
+  pricingNotes    String?
+  promotionsNotes String?
+  discountsNotes  String?
+  newLaunchesNotes String?
+  displayQualityNotes String?
+  marketObservations String?
+  createdAt       DateTime @default(now())
+  visit           OutletVisit @relation(fields: [visitId], references: [id], onDelete: Cascade)
+
+  @@index([visitId])
+}
+
+model Questionnaire {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  questions   QuestionnaireQuestion[]
+  responses   QuestionnaireResponse[]
+}
+
+model QuestionnaireQuestion {
+  id              String       @id @default(cuid())
+  questionnaireId String
+  prompt          String
+  helpText        String?
+  type            QuestionType @default(text)
+  /// JSON array of option labels for choice questions.
+  optionsJson     String?
+  required        Boolean      @default(false)
+  sortOrder       Int          @default(0)
+  isActive        Boolean      @default(true)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  questionnaire   Questionnaire @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
+  answers         QuestionnaireAnswer[]
+
+  @@index([questionnaireId, sortOrder])
+}
+
+model QuestionnaireResponse {
+  id              String   @id @default(cuid())
+  questionnaireId String
+  visitId         String
+  submittedAt     DateTime @default(now())
+  createdAt       DateTime @default(now())
+  questionnaire   Questionnaire @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
+  visit           OutletVisit   @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  answers         QuestionnaireAnswer[]
+
+  @@unique([visitId, questionnaireId])
+  @@index([questionnaireId])
+}
+
+model QuestionnaireAnswer {
+  id          String   @id @default(cuid())
+  responseId  String
+  questionId  String
+  /// Stored as string; parse by question type on read.
+  valueText   String?
+  createdAt   DateTime @default(now())
+  response    QuestionnaireResponse  @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  question    QuestionnaireQuestion  @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([responseId, questionId])
+  @@index([questionId])
+}
+
+model OpsAlert {
+  id          String           @id @default(cuid())
+  kind        OpsAlertKind
+  severity    OpsAlertSeverity @default(info)
+  title       String
+  message     String
+  /// Optional JSON context (vendorId, visitId, userId, etc.).
+  metaJson    String?
+  isRead      Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([createdAt(sort: Desc)])
+  @@index([isRead, createdAt(sort: Desc)])
+  @@index([kind, createdAt(sort: Desc)])
+}
+
+/// Nestlé products shown as visit-form dropdowns (managed by Ops).
+model CatalogNestleProduct {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// Competitor brands shown as visit-form dropdowns (managed by Ops).
+model CatalogCompetitorBrand {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  products  CatalogCompetitorProduct[]
+}
+
+model CatalogCompetitorProduct {
+  id        String                 @id @default(cuid())
+  brandId   String
+  name      String
+  sortOrder Int                    @default(0)
+  isActive  Boolean                @default(true)
+  createdAt DateTime               @default(now())
+  updatedAt DateTime               @updatedAt
+  brand     CatalogCompetitorBrand @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  @@unique([brandId, name])
+  @@index([brandId, sortOrder])
+}

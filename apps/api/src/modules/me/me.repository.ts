@@ -1,0 +1,221 @@
+import { Inject, Injectable } from "@nestjs/common";
+
+import type { AttendanceKind } from "../../generated/prisma/client";
+import { PrismaService } from "../prisma/prisma.service";
+
+/** Shape returned by {@link MeRepository.listLocationPingsByUser} (explicit for ESLint / Prisma inference). */
+export type LocationPingHistoryRow = {
+  id: string;
+  attendanceKind: AttendanceKind;
+  geofenceId: string | null;
+  distanceToGeofenceMeters: number | null;
+  dwellSecondsAtGeofence: number | null;
+  latitude: number;
+  longitude: number;
+  placeLabel: string | null;
+  hasSelfieVerification: boolean;
+  recordedAt: Date;
+};
+
+@Injectable()
+export class MeRepository {
+  public constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+
+  public getProfile(userId: string) {
+    return this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        fullName: true,
+        phone: true,
+        role: true,
+        gender: true,
+        regionId: true,
+        region: {
+          select: { name: true }
+        }
+      }
+    });
+  }
+
+  public getTrackingProfile(userId: string) {
+    return this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        fullName: true,
+        phone: true,
+        role: true,
+        regionId: true,
+        region: {
+          select: { name: true }
+        }
+      }
+    });
+  }
+
+  public updateProfile(
+    userId: string,
+    patch: Partial<{
+      fullName: string;
+      gender: "male" | "female" | "other";
+      regionId: string;
+    }>
+  ) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        ...(patch.fullName !== undefined ? { fullName: patch.fullName } : {}),
+        ...(patch.gender !== undefined ? { gender: patch.gender } : {}),
+        ...(patch.regionId !== undefined ? { regionId: patch.regionId } : {})
+      },
+      select: {
+        id: true,
+        fullName: true,
+        phone: true,
+        role: true,
+        gender: true,
+        regionId: true,
+        region: {
+          select: { name: true }
+        }
+      }
+    });
+  }
+
+  public addLocation(
+    userId: string,
+    latitude: number,
+    longitude: number,
+    placeLabel: string | null,
+    selfie: {
+      mimeType: string | null;
+      image: Buffer | null;
+      cloudinaryPublicId: string | null;
+      cloudinaryUrl: string | null;
+      hasVerification: boolean;
+    },
+    attendanceKind: AttendanceKind,
+    geofenceId: string | null,
+    distanceToGeofenceMeters: number | null,
+    dwellSecondsAtGeofence: number | null
+  ) {
+    const selfieBytes = selfie.image !== null ? new Uint8Array(selfie.image) : null;
+    return this.prisma.locationPing.create({
+      data: {
+        userId,
+        attendanceKind,
+        geofenceId,
+        distanceToGeofenceMeters,
+        dwellSecondsAtGeofence,
+        latitude,
+        longitude,
+        placeLabel,
+        selfieMimeType: selfie.mimeType,
+        selfieImage: selfieBytes,
+        selfieCloudinaryPublicId: selfie.cloudinaryPublicId,
+        selfieCloudinaryUrl: selfie.cloudinaryUrl,
+        hasSelfieVerification: selfie.hasVerification
+      },
+      select: {
+        id: true,
+        userId: true,
+        attendanceKind: true,
+        geofenceId: true,
+        distanceToGeofenceMeters: true,
+        dwellSecondsAtGeofence: true,
+        latitude: true,
+        longitude: true,
+        placeLabel: true,
+        hasSelfieVerification: true,
+        recordedAt: true
+      }
+    });
+  }
+
+  public async listLocationPingsByUser(
+    userId: string,
+    take: number
+  ): Promise<LocationPingHistoryRow[]> {
+    return this.prisma.locationPing.findMany({
+      where: { userId },
+      orderBy: { recordedAt: "desc" },
+      take,
+      select: {
+        id: true,
+        attendanceKind: true,
+        geofenceId: true,
+        distanceToGeofenceMeters: true,
+        dwellSecondsAtGeofence: true,
+        latitude: true,
+        longitude: true,
+        placeLabel: true,
+        hasSelfieVerification: true,
+        recordedAt: true
+      }
+    });
+  }
+
+  public findLatestLocationPingByUser(userId: string) {
+    return this.prisma.locationPing.findFirst({
+      where: { userId },
+      orderBy: { recordedAt: "desc" },
+      select: {
+        geofenceId: true,
+        recordedAt: true
+      }
+    });
+  }
+
+  /** Latest ping for a user whose `recordedAt` falls in `[windowStart, windowEndExclusive)`. */
+  public findLatestPingInRecordedAtWindow(
+    userId: string,
+    windowStart: Date,
+    windowEndExclusive: Date
+  ) {
+    return this.prisma.locationPing.findFirst({
+      where: {
+        userId,
+        recordedAt: { gte: windowStart, lt: windowEndExclusive }
+      },
+      orderBy: { recordedAt: "desc" },
+      select: {
+        attendanceKind: true,
+        recordedAt: true
+      }
+    });
+  }
+
+  public findLatestClockInInRecordedAtWindow(
+    userId: string,
+    windowStart: Date,
+    windowEndExclusive: Date
+  ) {
+    return this.prisma.locationPing.findFirst({
+      where: {
+        userId,
+        attendanceKind: "clock_in",
+        recordedAt: { gte: windowStart, lt: windowEndExclusive }
+      },
+      orderBy: { recordedAt: "desc" },
+      select: {
+        geofenceId: true
+      }
+    });
+  }
+
+  public countAttendanceKindInWindow(
+    userId: string,
+    windowStart: Date,
+    windowEndExclusive: Date,
+    kind: AttendanceKind
+  ): Promise<number> {
+    return this.prisma.locationPing.count({
+      where: {
+        userId,
+        attendanceKind: kind,
+        recordedAt: { gte: windowStart, lt: windowEndExclusive }
+      }
+    });
+  }
+}

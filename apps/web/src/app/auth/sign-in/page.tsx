@@ -1,0 +1,170 @@
+"use client";
+
+import { FormControl } from "baseui/form-control";
+import { Input } from "baseui/input";
+import { Select } from "baseui/select";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, type ReactElement, useState } from "react";
+
+import { MobileShell } from "@/components/mobile-shell";
+import { BoneyardFullPageFallback } from "@/components/boneyard/boneyard-full-page-fallback";
+import { useAuthSignIn } from "@/lib/api/generated/client";
+import { ApiError } from "@/lib/api/problem-details";
+import { resolvePostSignInRedirect } from "@/lib/auth/safe-post-sign-in-redirect";
+import { useAuthStore } from "@/lib/auth/auth-store";
+import { parseAuthResponseFromOrval } from "@/lib/auth/orval-auth-adapter";
+import { calmPrimaryButtonClass } from "@/lib/calm-ui";
+import { requestCurrentPosition } from "@/lib/geolocation/request-current-position";
+import { toast } from "@/lib/toast";
+import { isOpsRole } from "@/lib/ops/ops-adapters";
+
+function SignInForm(): ReactElement {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectAfterAuth = searchParams.get("redirect");
+
+  const setSession = useAuthStore((state) => state.setSession);
+  const [phone, setPhone] = useState("");
+  const [uniqueCode, setUniqueCode] = useState("");
+  const [role, setRole] = useState<"promoter" | "client" | "supervisor" | "admin">("promoter");
+  const [isLocating, setIsLocating] = useState(false);
+  const roleOptions: { id: string; label: string }[] = [
+    { id: "promoter", label: "Promoter" },
+    { id: "client", label: "Client (read-only)" },
+    { id: "supervisor", label: "Supervisor" },
+    { id: "admin", label: "Admin" }
+  ];
+
+  const signInMutation = useAuthSignIn({
+    mutation: {
+      onSuccess: (result) => {
+        const parsed = parseAuthResponseFromOrval(result);
+        setSession({
+          user: parsed.user,
+          accessToken: parsed.accessToken,
+          refreshToken: parsed.refreshToken
+        });
+        const next = resolvePostSignInRedirect(redirectAfterAuth, parsed.user.role);
+        router.replace(next);
+      }
+    }
+  });
+
+  return (
+    <MobileShell
+      title="Nestlé Ghana"
+      subtitle="Sign in with your phone, unique code, and role. Promoters onboard and monitor koko vendors in the field. Supervisors and admins use Operations."
+    >
+      <form
+        className="flex flex-col gap-3"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (isOpsRole(role) || role === "client") {
+            signInMutation.mutate(
+              { data: { phone, uniqueCode, role } },
+              {
+                onSettled: () => {
+                  setIsLocating(false);
+                },
+                onError: (err: unknown) => {
+                  if (err instanceof ApiError) {
+                    toast.error(err.problem?.detail ?? err.message);
+                  } else {
+                    toast.error("Sign-in failed. Please check your credentials and try again.");
+                  }
+                }
+              }
+            );
+            return;
+          }
+          setIsLocating(true);
+          void (async () => {
+            const pos = await requestCurrentPosition();
+            const data = {
+              phone,
+              uniqueCode,
+              role,
+              ...(pos.ok ? { latitude: pos.latitude, longitude: pos.longitude } : {})
+            };
+            signInMutation.mutate(
+              { data },
+              {
+                onSettled: () => {
+                  setIsLocating(false);
+                },
+                onError: (err: unknown) => {
+                  if (!pos.ok && err instanceof ApiError && err.status !== 401) {
+                    toast.error(`${pos.message} (${err.problem?.detail ?? err.message})`);
+                  } else if (err instanceof ApiError) {
+                    toast.error(err.problem?.detail ?? err.message);
+                  } else {
+                    toast.error("Sign-in failed. Please check your credentials and try again.");
+                  }
+                }
+              }
+            );
+          })();
+        }}
+      >
+        <FormControl label="Phone number">
+          <Input
+            name="phone"
+            placeholder="0244123456 or +233244123456"
+            value={phone}
+            onChange={(event) => {
+              setPhone(event.currentTarget.value);
+            }}
+            required
+          />
+        </FormControl>
+
+        <FormControl label="Unique code">
+          <Input
+            name="uniqueCode"
+            placeholder="P-12ab34cd"
+            value={uniqueCode}
+            onChange={(event) => {
+              setUniqueCode(event.currentTarget.value);
+            }}
+            required
+          />
+        </FormControl>
+
+        <FormControl label="Role">
+          <Select
+            options={roleOptions}
+            value={roleOptions.filter((option) => option.id === role)}
+            clearable={false}
+            searchable={false}
+            onChange={(params) => {
+              const option = params.value.at(0);
+              if (option) {
+                setRole(option.id as "promoter" | "client" | "supervisor" | "admin");
+              }
+            }}
+          />
+        </FormControl>
+
+        <button
+          type="submit"
+          className={`${calmPrimaryButtonClass} mt-2`}
+          disabled={isLocating || signInMutation.isPending}
+        >
+          {isLocating || signInMutation.isPending ? "Signing in..." : "Sign in"}
+        </button>
+      </form>
+
+      <p className="mt-5 text-sm text-muted-foreground">
+        Need an account? Ask your supervisor or admin to create one for you.
+      </p>
+    </MobileShell>
+  );
+}
+
+export default function SignInPage(): ReactElement {
+  return (
+    <Suspense fallback={<BoneyardFullPageFallback name="auth-sign-in-suspense" />}>
+      <SignInForm />
+    </Suspense>
+  );
+}

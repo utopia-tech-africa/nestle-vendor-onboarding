@@ -1,0 +1,150 @@
+import { Body, Controller, Get, Inject, Param, Patch, Post, UseGuards } from "@nestjs/common";
+import {
+  ApiBadRequestResponse,
+  ApiBearerAuth,
+  ApiBody,
+  ApiConflictResponse,
+  ApiCreatedResponse,
+  ApiForbiddenResponse,
+  ApiNotFoundResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiParam,
+  ApiServiceUnavailableResponse,
+  ApiTags,
+  ApiUnauthorizedResponse
+} from "@nestjs/swagger";
+
+import { CurrentUser } from "../../common/decorators/current-user.decorator";
+import type { AuthenticatedUser } from "../../common/types/authenticated-user.type";
+import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
+import { AdminUserService } from "./admin-user.service";
+import { CreateAdminUserDto } from "./dto/create-admin-user.dto";
+import { UpdateAdminUserDto } from "./dto/update-admin-user.dto";
+
+@Controller("admin/users")
+@ApiTags("Admin users (supervisor / admin)")
+@UseGuards(JwtAuthGuard)
+@ApiBearerAuth("bearer")
+export class AdminUserController {
+  public constructor(
+    @Inject(AdminUserService) private readonly adminUserService: AdminUserService
+  ) {}
+
+  @Get()
+  @ApiOperation({
+    operationId: "AdminUser_listUsers",
+    summary: "List users (supervisor / admin)",
+    description:
+      "Supervisors only see promoters and clients; admins see everyone. New accounts are created by invite text message; if that message cannot be sent, the new user is not saved."
+  })
+  @ApiOkResponse({ description: "List of users" })
+  @ApiUnauthorizedResponse({ description: "Missing or invalid JWT" })
+  @ApiForbiddenResponse({ description: "Requires supervisor or admin role" })
+  public listUsers(@CurrentUser() currentUser: AuthenticatedUser) {
+    return this.adminUserService.listForAdmin(currentUser);
+  }
+
+  @Post()
+  @ApiOperation({
+    operationId: "AdminUser_createUser",
+    summary: "Create user (invite)",
+    description:
+      "Creates a sign-in account and sends instructions by text message. The account is only kept if that message is delivered successfully."
+  })
+  @ApiBody({
+    schema: {
+      type: "object",
+      required: ["fullName", "phone", "role"],
+      properties: {
+        fullName: { type: "string" },
+        phone: { type: "string", example: "0244123456" },
+        email: {
+          type: "string",
+          format: "email",
+          description: "Optional. Needed on supervisor/admin for Resend alerts."
+        },
+        role: {
+          type: "string",
+          enum: ["promoter", "client", "supervisor", "admin"]
+        },
+        regionId: { type: "string", description: "Optional region cuid" },
+        gender: { type: "string", enum: ["male", "female", "other"] },
+        geofenceIds: {
+          type: "array",
+          items: { type: "string" },
+          description: "Work-area geofence ids for promoters"
+        }
+      }
+    }
+  })
+  @ApiBadRequestResponse({
+    description: "Validation error, missing SMS configuration, or SMS rejected by provider"
+  })
+  @ApiServiceUnavailableResponse({ description: "SMS provider unreachable or HTTP error" })
+  @ApiCreatedResponse({ description: "User created" })
+  @ApiConflictResponse({ description: "Phone already in use" })
+  @ApiUnauthorizedResponse({ description: "Missing or invalid JWT" })
+  @ApiForbiddenResponse({
+    description: "Requires supervisor or admin; only admins may create supervisor/admin"
+  })
+  public createUser(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Body() body: CreateAdminUserDto
+  ) {
+    return this.adminUserService.createForAdmin(currentUser, body);
+  }
+
+  @Patch(":id")
+  @ApiParam({ name: "id", description: "User id (cuid)" })
+  @ApiOperation({
+    operationId: "AdminUser_updateUser",
+    summary: "Update user",
+    description:
+      "Partial update. Supervisors may edit promoters and clients only. Only admins may assign supervisor or admin roles."
+  })
+  @ApiBody({
+    schema: {
+      type: "object",
+      properties: {
+        fullName: { type: "string" },
+        email: {
+          type: "string",
+          format: "email",
+          nullable: true,
+          description: "Email for ops alerts / digests, or null to clear"
+        },
+        role: {
+          type: "string",
+          enum: ["promoter", "client", "supervisor", "admin"]
+        },
+        regionId: {
+          type: "string",
+          nullable: true,
+          description: "Region id (cuid), or null to remove assignment",
+          minLength: 1,
+          maxLength: 64
+        },
+        isActive: { type: "boolean" },
+        gender: { type: "string", enum: ["male", "female", "other"] },
+        geofenceIds: {
+          type: "array",
+          items: { type: "string" },
+          description: "Replace work-area geofence ids. Empty array clears assignments."
+        }
+      }
+    }
+  })
+  @ApiOkResponse({ description: "User updated" })
+  @ApiNotFoundResponse({ description: "User id not found" })
+  @ApiConflictResponse({ description: "Unique constraint violation" })
+  @ApiUnauthorizedResponse({ description: "Missing or invalid JWT" })
+  @ApiForbiddenResponse({ description: "Not allowed for this role or target user" })
+  public updateUser(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Param("id") id: string,
+    @Body() body: UpdateAdminUserDto
+  ) {
+    return this.adminUserService.updateForAdmin(currentUser, id, body);
+  }
+}

@@ -1,0 +1,11 @@
+node_modules
+.venv-pdf
+dist
+.turbo
+.DS_Store
+.env
+coverage
+BACKEND_PRD.md
+WEB_PRD.md
+PROJECT.md
+apps/api/src/generated
