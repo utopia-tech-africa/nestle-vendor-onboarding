@@ -17,6 +17,7 @@ import {
 import { useAuthStore } from "@/lib/auth/auth-store";
 import { parseJsonStringArray } from "@/lib/outlet/field-catalogs";
 import {
+  formatVisitCountLabel,
   listOutletVisitReports,
   listOutlets,
   vendorLabel,
@@ -136,9 +137,12 @@ export default function ClientVisitsPage(): ReactElement {
     enabled: accessToken !== null
   });
 
+  const visits = visitsQuery.data?.items ?? [];
+  const visitTotal = visitsQuery.data?.total ?? 0;
+
   const uniqueUsers = useMemo(() => {
     const users = new Map<string, { id: string; fullName: string; phone: string }>();
-    for (const row of visitsQuery.data ?? []) {
+    for (const row of visits) {
       if (row.user !== undefined) {
         users.set(row.user.id, {
           id: row.user.id,
@@ -148,13 +152,13 @@ export default function ClientVisitsPage(): ReactElement {
       }
     }
     return [...users.values()];
-  }, [visitsQuery.data]);
+  }, [visits]);
 
   const exportExcel = (): void => {
-    if (visitsQuery.data === undefined || visitsQuery.data.length === 0) {
+    if (visits.length === 0) {
       return;
     }
-    const rows = visitsQuery.data.map(visitToExcelRow);
+    const rows = visits.map(visitToExcelRow);
     const worksheet = XLSX.utils.json_to_sheet(rows);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Vendor Visits");
@@ -181,8 +185,8 @@ export default function ClientVisitsPage(): ReactElement {
           ...(from ? { from: new Date(`${from}T00:00:00.000Z`).toISOString() } : {}),
           ...(to ? { to: new Date(`${to}T23:59:59.999Z`).toISOString() } : {})
         });
-        allRows.push(...page);
-        if (page.length < pageSize) {
+        allRows.push(...page.items);
+        if (page.items.length < pageSize) {
           break;
         }
         skip += pageSize;
@@ -275,12 +279,19 @@ export default function ClientVisitsPage(): ReactElement {
 
       <section className={cardClass}>
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-base font-semibold text-foreground">Results</h2>
+          <h2 className="text-base font-semibold text-foreground">
+            Results
+            {visitsQuery.data !== undefined ? (
+              <span className="ml-2 text-sm font-normal text-muted-foreground">
+                ({formatVisitCountLabel(visits.length, visitTotal)})
+              </span>
+            ) : null}
+          </h2>
           <div className="flex items-center gap-2">
             <button
               type="button"
               className="rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={visitsQuery.data === undefined || visitsQuery.data.length === 0}
+              disabled={visits.length === 0}
               onClick={exportExcel}
             >
               Export current page
@@ -303,14 +314,14 @@ export default function ClientVisitsPage(): ReactElement {
         {visitsQuery.isError ? (
           <p className="mt-3 text-sm text-destructive">Could not load vendor visit reports.</p>
         ) : null}
-        {visitsQuery.data?.length === 0 ? (
+        {visitsQuery.data !== undefined && visits.length === 0 ? (
           <p className="mt-3 text-sm text-muted-foreground">
             No vendor visits match the selected filters.
           </p>
         ) : null}
-        {visitsQuery.data !== undefined && visitsQuery.data.length > 0 ? (
+        {visits.length > 0 ? (
           <ul className="mt-4 space-y-3">
-            {visitsQuery.data.map((visit) => {
+            {visits.map((visit) => {
               const isExpanded = expandedId === visit.id;
               const answers = visit.questionnaireResponses?.flatMap((r) => r.answers) ?? [];
               return (

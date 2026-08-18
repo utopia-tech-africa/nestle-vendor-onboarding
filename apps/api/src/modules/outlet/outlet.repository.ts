@@ -353,7 +353,7 @@ export class OutletRepository {
     });
   }
 
-  public listVisitsForAdmin(params: {
+  public async listVisitsForAdmin(params: {
     take: number;
     skip?: number;
     outletId?: string;
@@ -379,36 +379,41 @@ export class OutletRepository {
       };
     }
 
-    return this.prisma.outletVisit.findMany({
-      where,
-      orderBy: { checkedInAt: "desc" },
-      take: params.take,
-      ...(params.skip !== undefined ? { skip: params.skip } : {}),
-      select: {
-        ...visitListSelect,
-        outlet: {
-          select: {
-            id: true,
-            vendorCode: true,
-            name: true,
-            category: true,
-            distributorName: true,
-            locationArea: true,
-            district: true,
-            regionId: true,
-            latitude: true,
-            longitude: true
-          }
-        },
-        user: {
-          select: {
-            id: true,
-            fullName: true,
-            phone: true,
-            role: true
+    const [items, total] = await Promise.all([
+      this.prisma.outletVisit.findMany({
+        where,
+        orderBy: { checkedInAt: "desc" },
+        take: params.take,
+        ...(params.skip !== undefined ? { skip: params.skip } : {}),
+        select: {
+          ...visitListSelect,
+          outlet: {
+            select: {
+              id: true,
+              vendorCode: true,
+              name: true,
+              category: true,
+              distributorName: true,
+              locationArea: true,
+              district: true,
+              regionId: true,
+              latitude: true,
+              longitude: true
+            }
+          },
+          user: {
+            select: {
+              id: true,
+              fullName: true,
+              phone: true,
+              role: true
+            }
           }
         }
-      }
-    });
+      }),
+      this.prisma.outletVisit.count({ where })
+    ]);
+
+    return { items, total };
   }
 }

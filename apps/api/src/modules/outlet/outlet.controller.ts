@@ -56,7 +56,7 @@ export class OutletController {
   @ApiOperation({
     operationId: "AdminOutlet_listOutletVisits",
     summary: "List outlet visit reports",
-    description: "Returns outlet visits with optional filters for outlet, user and datetime range."
+    description: "Returns outlet visits with optional filters for outlet, user and datetime range, plus the total matching count."
   })
   @ApiQuery({
     name: "limit",
@@ -74,7 +74,7 @@ export class OutletController {
   @ApiQuery({ name: "userId", required: false, description: "Filter one field user id" })
   @ApiQuery({ name: "from", required: false, description: "ISO datetime inclusive lower bound" })
   @ApiQuery({ name: "to", required: false, description: "ISO datetime inclusive upper bound" })
-  @ApiOkResponse({ description: "Outlet visit report rows" })
+  @ApiOkResponse({ description: "Outlet visit report rows with total count" })
   @ApiUnauthorizedResponse({ description: "Missing or invalid JWT" })
   @ApiForbiddenResponse({ description: "Requires supervisor or admin role" })
   public listOutletVisits(

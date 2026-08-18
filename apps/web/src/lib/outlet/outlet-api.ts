@@ -407,6 +407,18 @@ export const createOutletVisit = async (
 export const listMyOutletVisits = async (token: string, limit = 50): Promise<OutletVisitRecord[]> =>
   apiRequest<OutletVisitRecord[]>(`/me/outlet-visits?limit=${String(limit)}`, { token });
 
+export type OutletVisitReportPage = {
+  items: OutletVisitRecord[];
+  total: number;
+};
+
+export const formatVisitCountLabel = (shown: number, total: number): string => {
+  if (total === shown) {
+    return `${String(total)} ${total === 1 ? "visit" : "visits"}`;
+  }
+  return `Showing ${String(shown)} of ${String(total)} visits`;
+};
+
 export const listOutletVisitReports = async (
   token: string,
   params: {
@@ -417,7 +429,7 @@ export const listOutletVisitReports = async (
     from?: string;
     to?: string;
   }
-): Promise<OutletVisitRecord[]> => {
+): Promise<OutletVisitReportPage> => {
   const query = new URLSearchParams();
   query.set("limit", String(params.limit ?? 100));
   query.set("skip", String(params.skip ?? 0));
@@ -433,7 +445,7 @@ export const listOutletVisitReports = async (
   if (params.to !== undefined && params.to.trim().length > 0) {
     query.set("to", params.to.trim());
   }
-  return apiRequest<OutletVisitRecord[]>(`/admin/outlets/visits?${query.toString()}`, { token });
+  return apiRequest<OutletVisitReportPage>(`/admin/outlets/visits?${query.toString()}`, { token });
 };
 
 export const getActiveQuestionnaire = async (token: string): Promise<QuestionnaireRecord | null> =>

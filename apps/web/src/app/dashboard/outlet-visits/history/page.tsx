@@ -26,7 +26,14 @@ export default function OutletVisitHistoryPage(): ReactElement {
             Back to vendors
           </Link>
         </p>
-        <h1 className="mt-2 text-xl font-semibold tracking-tight text-foreground">Vendor visit history</h1>
+        <h1 className="mt-2 text-xl font-semibold tracking-tight text-foreground">
+          Vendor visit history
+          {visitsQuery.data !== undefined ? (
+            <span className="ml-2 text-sm font-normal text-muted-foreground">
+              ({visitsQuery.data.length} {visitsQuery.data.length === 1 ? "visit" : "visits"})
+            </span>
+          ) : null}
+        </h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Review your recent vendor visit submissions.{" "}
           <Link href="/dashboard/outlet-visits/visit" className={calmMutedLinkClass}>
