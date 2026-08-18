@@ -254,8 +254,77 @@ export type QuestionnaireRecord = {
   questions: QuestionnaireQuestion[];
 };
 
-export const listOutlets = async (token: string): Promise<OutletRecord[]> =>
-  apiRequest<OutletRecord[]>("/admin/outlets", { token });
+export type OutletListPage = {
+  items: OutletRecord[];
+  total: number;
+};
+
+export const formatPageRangeLabel = (
+  skip: number,
+  shown: number,
+  total: number,
+  noun: string
+): string => {
+  if (total === 0) {
+    return `0 ${noun}`;
+  }
+  if (shown === 0) {
+    return `0 of ${String(total)} ${noun}`;
+  }
+  const start = skip + 1;
+  const end = skip + shown;
+  return `${String(start)}–${String(end)} of ${String(total)} ${noun}`;
+};
+
+export type OutletListParams = {
+  limit?: number;
+  skip?: number;
+  search?: string;
+  regionId?: string;
+  category?: string;
+  status?: "all" | "active" | "inactive";
+  createdByUserId?: string;
+  unassigned?: boolean;
+};
+
+export const listOutlets = async (
+  token: string,
+  params: OutletListParams = {}
+): Promise<OutletListPage> => {
+  const query = new URLSearchParams();
+  query.set("limit", String(params.limit ?? 25));
+  query.set("skip", String(params.skip ?? 0));
+  if (params.search !== undefined && params.search.trim().length > 0) {
+    query.set("search", params.search.trim());
+  }
+  if (params.regionId !== undefined && params.regionId.trim().length > 0) {
+    query.set("regionId", params.regionId.trim());
+  }
+  if (params.category !== undefined && params.category.trim().length > 0) {
+    query.set("category", params.category.trim());
+  }
+  if (params.status !== undefined && params.status !== "all") {
+    query.set("status", params.status);
+  }
+  if (params.unassigned === true) {
+    query.set("unassigned", "true");
+  } else if (params.createdByUserId !== undefined && params.createdByUserId.trim().length > 0) {
+    query.set("createdByUserId", params.createdByUserId.trim());
+  }
+  return apiRequest<OutletListPage>(`/admin/outlets?${query.toString()}`, { token });
+};
+
+export type OutletFilterOption = {
+  id: string;
+  vendorCode: string;
+  name: string;
+  contactName: string | null;
+  contactPhone: string | null;
+  district: string | null;
+};
+
+export const listOutletOptions = async (token: string): Promise<OutletFilterOption[]> =>
+  apiRequest<OutletFilterOption[]>("/admin/outlets/options", { token });
 
 export const listFieldOutlets = async (token: string): Promise<OutletRecord[]> =>
   apiRequest<OutletRecord[]>("/me/outlets", { token });
@@ -414,12 +483,25 @@ export type OutletVisitReportPage = {
   total: number;
 };
 
-export const formatVisitCountLabel = (shown: number, total: number): string => {
-  if (total === shown) {
-    return `${String(total)} ${total === 1 ? "visit" : "visits"}`;
-  }
-  return `Showing ${String(shown)} of ${String(total)} visits`;
+export const formatVisitPageLabel = (skip: number, shown: number, total: number): string =>
+  formatPageRangeLabel(skip, shown, total, "visits");
+
+export type PromoterRecord = {
+  id: string;
+  fullName: string;
+  phone: string;
+  isActive: boolean;
 };
+
+export const promoterOptionLabel = (user: {
+  fullName: string;
+  phone: string;
+  isActive?: boolean;
+}): string =>
+  `${user.fullName} (${user.phone})${user.isActive === false ? " · inactive" : ""}`;
+
+export const listPromoters = async (token: string): Promise<PromoterRecord[]> =>
+  apiRequest<PromoterRecord[]>("/admin/outlets/promoters", { token });
 
 export const uniqueVisitPromoters = (
   visits: OutletVisitRecord[]
@@ -431,22 +513,6 @@ export const uniqueVisitPromoters = (
         id: row.user.id,
         fullName: row.user.fullName,
         phone: row.user.phone
-      });
-    }
-  }
-  return [...users.values()].sort((a, b) => a.fullName.localeCompare(b.fullName));
-};
-
-export const uniqueOutletPromoters = (
-  outlets: Pick<OutletRecord, "createdBy">[]
-): { id: string; fullName: string; phone: string }[] => {
-  const users = new Map<string, { id: string; fullName: string; phone: string }>();
-  for (const row of outlets) {
-    if (row.createdBy != null) {
-      users.set(row.createdBy.id, {
-        id: row.createdBy.id,
-        fullName: row.createdBy.fullName,
-        phone: row.createdBy.phone
       });
     }
   }

@@ -156,19 +156,103 @@ export class OutletRepository {
     return tx ?? this.prisma;
   }
 
-  public findAll() {
-    return this.prisma.outlet.findMany({
-      orderBy: { createdAt: "desc" },
-      select: outletSelect
-    });
-  }
-
   public findAllActive() {
     return this.prisma.outlet.findMany({
       where: { isActive: true },
       orderBy: [{ name: "asc" }, { locationArea: "asc" }],
       select: outletSelect
     });
+  }
+
+  public listFilterOptions() {
+    return this.prisma.outlet.findMany({
+      orderBy: [{ name: "asc" }, { vendorCode: "asc" }],
+      select: {
+        id: true,
+        vendorCode: true,
+        name: true,
+        contactName: true,
+        contactPhone: true,
+        district: true
+      }
+    });
+  }
+
+  public async findPage(params: {
+    take: number;
+    skip: number;
+    search?: string;
+    regionId?: string;
+    category?: string;
+    isActive?: boolean;
+    createdByUserId?: string;
+    unassigned?: boolean;
+  }) {
+    const where = this.buildListWhere(params);
+    const [items, total] = await Promise.all([
+      this.prisma.outlet.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        take: params.take,
+        skip: params.skip,
+        select: outletSelect
+      }),
+      this.prisma.outlet.count({ where })
+    ]);
+    return { items, total };
+  }
+
+  private buildListWhere(params: {
+    search?: string;
+    regionId?: string;
+    category?: string;
+    isActive?: boolean;
+    createdByUserId?: string;
+    unassigned?: boolean;
+  }): Prisma.OutletWhereInput {
+    const where: Prisma.OutletWhereInput = {};
+    if (params.regionId !== undefined) {
+      where.regionId = params.regionId;
+    }
+    if (params.category !== undefined) {
+      where.category = params.category;
+    }
+    if (params.isActive !== undefined) {
+      where.isActive = params.isActive;
+    }
+    if (params.unassigned === true) {
+      where.createdByUserId = null;
+    } else if (params.createdByUserId !== undefined) {
+      where.createdByUserId = params.createdByUserId;
+    }
+
+    const query = params.search?.trim() ?? "";
+    if (query.length > 0) {
+      where.OR = [
+        { vendorCode: { contains: query, mode: "insensitive" } },
+        { name: { contains: query, mode: "insensitive" } },
+        { category: { contains: query, mode: "insensitive" } },
+        { contactName: { contains: query, mode: "insensitive" } },
+        { contactPhone: { contains: query, mode: "insensitive" } },
+        { contactPhoneSecondary: { contains: query, mode: "insensitive" } },
+        { contactEmail: { contains: query, mode: "insensitive" } },
+        { district: { contains: query, mode: "insensitive" } },
+        { locationArea: { contains: query, mode: "insensitive" } },
+        { landmark: { contains: query, mode: "insensitive" } },
+        { region: { is: { name: { contains: query, mode: "insensitive" } } } },
+        {
+          createdBy: {
+            is: {
+              OR: [
+                { fullName: { contains: query, mode: "insensitive" } },
+                { phone: { contains: query, mode: "insensitive" } }
+              ]
+            }
+          }
+        }
+      ];
+    }
+    return where;
   }
 
   public findById(id: string) {
@@ -199,6 +283,14 @@ export class OutletRepository {
       where: { isActive: true },
       orderBy: { name: "asc" },
       select: { id: true, name: true, slug: true, code: true }
+    });
+  }
+
+  public listPromoters() {
+    return this.prisma.user.findMany({
+      where: { role: "promoter" },
+      orderBy: { fullName: "asc" },
+      select: { id: true, fullName: true, phone: true, isActive: true }
     });
   }
 

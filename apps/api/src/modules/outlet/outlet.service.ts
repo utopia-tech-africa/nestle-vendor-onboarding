@@ -238,10 +238,46 @@ export class OutletService {
     });
   }
 
-  public async listForAdmin(currentUser: AuthenticatedUser) {
+  public async listForAdmin(
+    currentUser: AuthenticatedUser,
+    params: {
+      limit: number;
+      skip?: number;
+      search?: string;
+      regionId?: string;
+      category?: string;
+      isActive?: boolean;
+      createdByUserId?: string;
+      unassigned?: boolean;
+    }
+  ) {
     this.assertOutletViewer(currentUser);
-    const rows = await this.outletRepository.findAll();
-    return this.decorateOutlets(rows);
+    const take = Math.min(100, Math.max(1, params.limit));
+    const skip = Math.max(0, params.skip ?? 0);
+    const { items, total } = await this.outletRepository.findPage({
+      take,
+      skip,
+      ...(params.search !== undefined ? { search: params.search } : {}),
+      ...(params.regionId !== undefined ? { regionId: params.regionId } : {}),
+      ...(params.category !== undefined ? { category: params.category } : {}),
+      ...(params.isActive !== undefined ? { isActive: params.isActive } : {}),
+      ...(params.createdByUserId !== undefined ? { createdByUserId: params.createdByUserId } : {}),
+      ...(params.unassigned === true ? { unassigned: true } : {})
+    });
+    return {
+      items: await this.decorateOutlets(items),
+      total
+    };
+  }
+
+  public listOutletOptionsForViewer(currentUser: AuthenticatedUser) {
+    this.assertOutletViewer(currentUser);
+    return this.outletRepository.listFilterOptions();
+  }
+
+  public listPromotersForViewer(currentUser: AuthenticatedUser) {
+    this.assertOutletViewer(currentUser);
+    return this.outletRepository.listPromoters();
   }
 
   public async createForAdmin(currentUser: AuthenticatedUser, dto: CreateOutletDto) {

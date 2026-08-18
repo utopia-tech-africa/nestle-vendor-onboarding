@@ -2,13 +2,7 @@
 
 import { type ReactElement } from "react";
 
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import type { CatalogOption } from "@/lib/outlet/field-catalogs";
 import { toggleCatalogValue } from "@/lib/outlet/field-catalogs";
 
@@ -32,24 +26,19 @@ export function CatalogSelect({
   triggerClassName?: string;
 }): ReactElement {
   return (
-    <Select
+    <SearchableSelect
       value={value.length > 0 ? value : SELECT_NONE}
       onValueChange={(next) => {
         onValueChange(next === SELECT_NONE ? "" : next);
       }}
-    >
-      <SelectTrigger className={triggerClassName}>
-        <SelectValue placeholder={placeholder} />
-      </SelectTrigger>
-      <SelectContent>
-        {allowEmpty ? <SelectItem value={SELECT_NONE}>{emptyLabel}</SelectItem> : null}
-        {options.map((option) => (
-          <SelectItem key={option.value} value={option.value}>
-            {option.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+      placeholder={placeholder}
+      searchPlaceholder="Search…"
+      triggerClassName={triggerClassName}
+      options={[
+        ...(allowEmpty ? [{ value: SELECT_NONE, label: emptyLabel }] : []),
+        ...options.map((option) => ({ value: option.value, label: option.label }))
+      ]}
+    />
   );
 }
 
