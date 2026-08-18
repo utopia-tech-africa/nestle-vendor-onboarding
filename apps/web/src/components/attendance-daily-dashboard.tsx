@@ -1,10 +1,15 @@
 "use client";
 
-import { type ReactElement, type ReactNode } from "react";
+import { Info } from "lucide-react";
+import { type ReactElement, type ReactNode, useState } from "react";
 
 import { BoneyardInlineFallback } from "@/components/boneyard/boneyard-inline-fallback";
+import { CheckInDetailModal } from "@/components/check-in-detail-modal";
 import { DatePicker } from "@/components/ui/date-picker";
+import { useTrackingGetCheckIn } from "@/lib/api/generated/client";
+import { useAuthStore } from "@/lib/auth/auth-store";
 import { calmPrimaryButtonInlineClass, calmToolbarOutlineButtonInlineClass } from "@/lib/calm-ui";
+import { parseAdminFieldActivityCheckInFromOrval } from "@/lib/ops/field-activity-adapters";
 import type { AdminAttendanceDailySummary } from "@/lib/ops/ops-attendance-adapters";
 import { cn } from "@/lib/utils";
 
@@ -91,8 +96,28 @@ export const AttendanceDailyDashboard = ({
   onToday,
   data
 }: AttendanceDailyDashboardProps): ReactElement => {
+  const accessToken = useAuthStore((state) => state.accessToken);
+  const [clockInPingId, setClockInPingId] = useState<string | null>(null);
+
+  const clockInDetailQuery = useTrackingGetCheckIn(clockInPingId ?? "", {
+    query: {
+      enabled: accessToken !== null && clockInPingId !== null && clockInPingId.length > 0,
+      select: (r) => parseAdminFieldActivityCheckInFromOrval(r)
+    }
+  });
+
   const formatDayTime = (iso: string | null, tz: string): string =>
     iso === null ? "—" : formatTimeInZone(iso, tz);
+
+  const formatClockInDateTime = (iso: string): string => {
+    const tz = data?.timezone ?? "Africa/Accra";
+    return new Intl.DateTimeFormat("en-GB", {
+      timeZone: tz,
+      dateStyle: "medium",
+      timeStyle: "medium",
+      hour12: false
+    }).format(new Date(iso));
+  };
 
   return (
     <div className="space-y-8">
@@ -165,6 +190,9 @@ export const AttendanceDailyDashboard = ({
                     <th className="px-3 py-2 font-medium text-muted-foreground">Clock out</th>
                     <th className="px-3 py-2 font-medium text-muted-foreground">Hours</th>
                     <th className="px-3 py-2 font-medium text-muted-foreground">Status</th>
+                    <th className="px-3 py-2 font-medium text-muted-foreground">
+                      <span className="sr-only">Clock-in details</span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -204,6 +232,25 @@ export const AttendanceDailyDashboard = ({
                           ) : null}
                         </div>
                       </td>
+                      <td className="px-3 py-2">
+                        <button
+                          type="button"
+                          className="inline-flex size-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                          disabled={row.firstClockInPingId == null}
+                          aria-label={
+                            row.firstClockInPingId == null
+                              ? `No clock-in details for ${row.fullName}`
+                              : `Clock-in details for ${row.fullName}`
+                          }
+                          onClick={() => {
+                            if (row.firstClockInPingId != null) {
+                              setClockInPingId(row.firstClockInPingId);
+                            }
+                          }}
+                        >
+                          <Info className="size-4" aria-hidden />
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -212,6 +259,18 @@ export const AttendanceDailyDashboard = ({
           )}
         </div>
       ) : null}
+
+      <CheckInDetailModal
+        open={clockInPingId !== null}
+        onClose={() => {
+          setClockInPingId(null);
+        }}
+        isLoading={clockInDetailQuery.isLoading}
+        isError={clockInDetailQuery.isError}
+        detail={clockInDetailQuery.data}
+        formatDateTime={formatClockInDateTime}
+        contextSubtitle="Daily attendance · clock-in verification"
+      />
     </div>
   );
 };

@@ -4,7 +4,7 @@ import type { AuthenticatedUser } from "../../common/types/authenticated-user.ty
 import { StoredImageService } from "../cloudinary/stored-image.service";
 import { TrackingRepository } from "./tracking.repository";
 
-const OPS_ROLES = new Set<AuthenticatedUser["role"]>(["admin", "supervisor"]);
+const VIEWER_ROLES = new Set<AuthenticatedUser["role"]>(["admin", "supervisor", "client"]);
 
 @Injectable()
 export class TrackingService {
@@ -14,8 +14,8 @@ export class TrackingService {
   ) {}
 
   public async getCheckInForAdmin(currentUser: AuthenticatedUser, pingId: string) {
-    if (!OPS_ROLES.has(currentUser.role)) {
-      throw new ForbiddenException("Only supervisor or admin users can view tracking check-ins");
+    if (!VIEWER_ROLES.has(currentUser.role)) {
+      throw new ForbiddenException("Only supervisor, admin, or client can view check-in details");
     }
 
     const ping = await this.repository.findLocationPingByIdWithUserAndSelfie(pingId);

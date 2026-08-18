@@ -141,6 +141,7 @@ export class AttendanceAdminService {
         recordedAt: { gte: rangeStart, lt: rangeEnd }
       },
       select: {
+        id: true,
         userId: true,
         attendanceKind: true,
         recordedAt: true
@@ -201,6 +202,7 @@ export class AttendanceAdminService {
         regionId: u.regionId,
         regionName: u.region?.name ?? null,
         firstClockInAt: firstIn !== null ? firstIn.recordedAt.toISOString() : null,
+        firstClockInPingId: firstIn !== null ? firstIn.id : null,
         lastClockOutAt: lastOut !== null ? lastOut.recordedAt.toISOString() : null,
         totalWorkingHours:
           firstIn !== null && lastOut !== null

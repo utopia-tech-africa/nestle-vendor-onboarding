@@ -419,6 +419,22 @@ export const formatVisitCountLabel = (shown: number, total: number): string => {
   return `Showing ${String(shown)} of ${String(total)} visits`;
 };
 
+export const uniqueVisitPromoters = (
+  visits: OutletVisitRecord[]
+): { id: string; fullName: string; phone: string }[] => {
+  const users = new Map<string, { id: string; fullName: string; phone: string }>();
+  for (const row of visits) {
+    if (row.user !== undefined) {
+      users.set(row.user.id, {
+        id: row.user.id,
+        fullName: row.user.fullName,
+        phone: row.user.phone
+      });
+    }
+  }
+  return [...users.values()].sort((a, b) => a.fullName.localeCompare(b.fullName));
+};
+
 export const listOutletVisitReports = async (
   token: string,
   params: {

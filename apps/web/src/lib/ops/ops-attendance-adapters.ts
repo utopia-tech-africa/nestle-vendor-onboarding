@@ -15,6 +15,7 @@ const adminAttendanceDailySummarySchema = z.object({
       regionId: z.string().nullable(),
       regionName: z.string().nullable(),
       firstClockInAt: z.string().nullable(),
+      firstClockInPingId: z.string().nullable().optional(),
       lastClockOutAt: z.string().nullable(),
       totalWorkingHours: z.number().nullable().optional(),
       missed: z.boolean(),

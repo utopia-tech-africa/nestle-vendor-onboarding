@@ -20,6 +20,7 @@ import {
   formatVisitCountLabel,
   listOutletVisitReports,
   listOutlets,
+  uniqueVisitPromoters,
   vendorLabel,
   type OutletVisitRecord
 } from "@/lib/outlet/outlet-api";
@@ -124,6 +125,11 @@ export default function OpsOutletVisitsReportPage(): ReactElement {
     enabled: accessToken !== null
   });
 
+  const visitFilterDates = {
+    ...(from ? { from: new Date(`${from}T00:00:00.000Z`).toISOString() } : {}),
+    ...(to ? { to: new Date(`${to}T23:59:59.999Z`).toISOString() } : {})
+  };
+
   const visitsQuery = useQuery({
     queryKey: ["ops", "outlet-visits", { outletId, userId, from, to }],
     queryFn: async () =>
@@ -131,8 +137,18 @@ export default function OpsOutletVisitsReportPage(): ReactElement {
         limit: 200,
         ...(outletId ? { outletId } : {}),
         ...(userId.trim() ? { userId: userId.trim() } : {}),
-        ...(from ? { from: new Date(`${from}T00:00:00.000Z`).toISOString() } : {}),
-        ...(to ? { to: new Date(`${to}T23:59:59.999Z`).toISOString() } : {})
+        ...visitFilterDates
+      }),
+    enabled: accessToken !== null
+  });
+
+  const promoterOptionsQuery = useQuery({
+    queryKey: ["ops", "outlet-visits", { outletId, userId: "", from, to }],
+    queryFn: async () =>
+      listOutletVisitReports(accessToken ?? "", {
+        limit: 200,
+        ...(outletId ? { outletId } : {}),
+        ...visitFilterDates
       }),
     enabled: accessToken !== null
   });
@@ -140,19 +156,10 @@ export default function OpsOutletVisitsReportPage(): ReactElement {
   const visits = visitsQuery.data?.items ?? [];
   const visitTotal = visitsQuery.data?.total ?? 0;
 
-  const uniqueUsers = useMemo(() => {
-    const users = new Map<string, { id: string; fullName: string; phone: string }>();
-    for (const row of visits) {
-      if (row.user !== undefined) {
-        users.set(row.user.id, {
-          id: row.user.id,
-          fullName: row.user.fullName,
-          phone: row.user.phone
-        });
-      }
-    }
-    return [...users.values()];
-  }, [visits]);
+  const uniqueUsers = useMemo(
+    () => uniqueVisitPromoters([...(promoterOptionsQuery.data?.items ?? []), ...visits]),
+    [promoterOptionsQuery.data?.items, visits]
+  );
 
   const exportExcel = (): void => {
     if (visits.length === 0) {

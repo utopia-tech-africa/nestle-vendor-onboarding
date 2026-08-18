@@ -2,8 +2,9 @@
 
 import { type ReactElement, useCallback, useEffect, useRef, useState } from "react";
 
-import { compressJpegDataUrl } from "@/lib/image/compress-jpeg-data-url";
 import { calmPrimaryButtonClass, calmSecondaryButtonClass } from "@/lib/calm-ui";
+import { compressJpegDataUrl } from "@/lib/image/compress-jpeg-data-url";
+import { stampPhotoTimestamp } from "@/lib/image/stamp-photo-timestamp";
 
 export type PhotoCaptureProps = {
   onPhotoReady: (jpegDataUrl: string) => void;
@@ -98,7 +99,11 @@ export function PhotoCapture({
     void (async () => {
       try {
         const compressed = await compressJpegDataUrl(rawDataUrl);
-        setPreviewUrl(compressed);
+        try {
+          setPreviewUrl(await stampPhotoTimestamp(compressed));
+        } catch {
+          setPreviewUrl(compressed);
+        }
       } catch (caught) {
         const message = caught instanceof Error ? caught.message : "Could not process photo";
         setError(message);

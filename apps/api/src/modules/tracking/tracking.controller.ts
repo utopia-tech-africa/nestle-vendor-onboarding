@@ -28,11 +28,11 @@ export class TrackingController {
     operationId: "Tracking_getCheckIn",
     summary: "Get one live-map check-in (with selfie)",
     description:
-      "Returns check-in detail: coordinates, time, staff, and selfie as a data URL when recorded. For promoters only; used from Live field tracking."
+      "Returns check-in detail: coordinates, time, staff, and selfie as a data URL when recorded. For promoters only."
   })
   @ApiOkResponse({ description: "Check-in detail" })
   @ApiUnauthorizedResponse({ description: "Missing or invalid JWT" })
-  @ApiForbiddenResponse({ description: "Requires supervisor or admin role" })
+  @ApiForbiddenResponse({ description: "Requires supervisor, admin, or client role" })
   @ApiNotFoundResponse({ description: "Ping not found or not a promoter check-in" })
   public getCheckIn(
     @CurrentUser() currentUser: AuthenticatedUser,

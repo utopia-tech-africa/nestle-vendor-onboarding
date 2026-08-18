@@ -107,7 +107,7 @@ export function CheckInDetailModal({
                 className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-center text-sm text-destructive"
                 role="alert"
               >
-                Could not load this check-in. Try again or pick another point on the map.
+                Could not load this check-in. Try again.
               </p>
             </div>
           ) : null}
