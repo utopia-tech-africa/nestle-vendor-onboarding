@@ -4,7 +4,7 @@ import { type ReactElement, useCallback, useEffect, useRef, useState } from "rea
 
 import { calmPrimaryButtonClass, calmSecondaryButtonClass } from "@/lib/calm-ui";
 import { compressJpegDataUrl } from "@/lib/image/compress-jpeg-data-url";
-import { stampPhotoTimestamp } from "@/lib/image/stamp-photo-timestamp";
+import { resolvePhotoStampLocation, stampPhotoTimestamp } from "@/lib/image/stamp-photo-timestamp";
 
 export type PhotoCaptureProps = {
   onPhotoReady: (jpegDataUrl: string) => void;
@@ -14,6 +14,9 @@ export type PhotoCaptureProps = {
   description?: string;
   previewAlt?: string;
   openButtonLabel?: string;
+  /** When set, the watermark uses this fix instead of requesting GPS again. */
+  latitude?: number;
+  longitude?: number;
 };
 
 /**
@@ -25,7 +28,9 @@ export function PhotoCapture({
   facingMode = "user",
   description = "Use a private HTTPS connection; your browser will ask for camera access.",
   previewAlt = "Photo preview",
-  openButtonLabel = "Open camera"
+  openButtonLabel = "Open camera",
+  latitude,
+  longitude
 }: PhotoCaptureProps): ReactElement {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
@@ -33,6 +38,7 @@ export function PhotoCapture({
   const [isCompressing, setIsCompressing] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [cameraOpen, setCameraOpen] = useState(false);
+  const stampLocationRef = useRef<Awaited<ReturnType<typeof resolvePhotoStampLocation>>>(undefined);
 
   const stopStream = useCallback((): void => {
     setStream((prev) => {
@@ -61,6 +67,17 @@ export function PhotoCapture({
       void 0;
     });
   }, [stream]);
+
+  useEffect(() => {
+    if (!cameraOpen) {
+      return;
+    }
+    const known =
+      latitude !== undefined && longitude !== undefined ? { latitude, longitude } : undefined;
+    void resolvePhotoStampLocation(known).then((location) => {
+      stampLocationRef.current = location;
+    });
+  }, [cameraOpen, latitude, longitude]);
 
   const startCamera = async (): Promise<void> => {
     setError(null);
@@ -100,7 +117,12 @@ export function PhotoCapture({
       try {
         const compressed = await compressJpegDataUrl(rawDataUrl);
         try {
-          setPreviewUrl(await stampPhotoTimestamp(compressed));
+          const known =
+            latitude !== undefined && longitude !== undefined
+              ? { latitude, longitude }
+              : undefined;
+          const location = stampLocationRef.current ?? (await resolvePhotoStampLocation(known));
+          setPreviewUrl(await stampPhotoTimestamp(compressed, new Date(), location));
         } catch {
           setPreviewUrl(compressed);
         }

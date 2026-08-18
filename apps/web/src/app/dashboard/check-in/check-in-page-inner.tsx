@@ -334,6 +334,8 @@ export function FieldCheckInPageInner(): ReactElement {
               <SelfieCapture
                 key={`${String(gpsFix.latitude)}-${String(gpsFix.longitude)}`}
                 disabled={locationMutation.isPending}
+                latitude={gpsFix.latitude}
+                longitude={gpsFix.longitude}
                 onPhotoReady={(url) => {
                   setSelfieDataUrl(url);
                 }}
