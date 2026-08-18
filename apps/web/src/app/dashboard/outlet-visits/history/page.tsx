@@ -15,7 +15,8 @@ export default function OutletVisitHistoryPage(): ReactElement {
   const visitsQuery = useQuery({
     queryKey: ["field", "outlet-visits", "history"],
     queryFn: async () => listMyOutletVisits(accessToken ?? "", 100),
-    enabled: accessToken !== null
+    enabled: accessToken !== null,
+    refetchInterval: 60_000
   });
 
   return (
@@ -27,7 +28,7 @@ export default function OutletVisitHistoryPage(): ReactElement {
           </Link>
         </p>
         <h1 className="mt-2 text-xl font-semibold tracking-tight text-foreground">
-          Vendor visit history
+          Today&apos;s visits
           {visitsQuery.data !== undefined ? (
             <span className="ml-2 text-sm font-normal text-muted-foreground">
               ({visitsQuery.data.length} {visitsQuery.data.length === 1 ? "visit" : "visits"})
@@ -35,7 +36,7 @@ export default function OutletVisitHistoryPage(): ReactElement {
           ) : null}
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Review your recent vendor visit submissions.{" "}
+          Vendor visits you recorded today. This list clears at midnight.{" "}
           <Link href="/dashboard/outlet-visits/visit" className={calmMutedLinkClass}>
             Record new visit
           </Link>
@@ -51,12 +52,12 @@ export default function OutletVisitHistoryPage(): ReactElement {
       ) : null}
       {visitsQuery.isError ? (
         <p className="text-sm text-destructive" role="alert">
-          Could not load vendor visit history.
+          Could not load today's visits.
         </p>
       ) : null}
       {visitsQuery.data?.length === 0 ? (
         <p className="rounded-xl border border-dashed border-border bg-muted/20 px-4 py-8 text-sm text-muted-foreground">
-          No vendor visits recorded yet.
+          No vendor visits recorded today.
         </p>
       ) : null}
       {visitsQuery.data !== undefined && visitsQuery.data.length > 0 ? (

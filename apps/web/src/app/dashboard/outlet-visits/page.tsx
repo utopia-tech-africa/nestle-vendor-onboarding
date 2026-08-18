@@ -53,7 +53,7 @@ export default function FieldVendorsHubPage(): ReactElement {
           </p>
         </div>
         <Link href="/dashboard/outlet-visits/history" className={calmMutedLinkClass}>
-          History
+          Today&apos;s visits
         </Link>
       </div>
 

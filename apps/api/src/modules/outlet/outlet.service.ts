@@ -6,7 +6,11 @@ import {
   NotFoundException
 } from "@nestjs/common";
 
+import { ConfigService } from "@nestjs/config";
+import { DateTime } from "luxon";
+
 import type { AuthenticatedUser, UserRole } from "../../common/types/authenticated-user.type";
+import type { EnvironmentVariables } from "../../config/environment";
 import type { VisitPhotoCategory } from "../../generated/prisma/client";
 import { CloudinaryService } from "../cloudinary/cloudinary.service";
 import { StoredImageService } from "../cloudinary/stored-image.service";
@@ -52,7 +56,8 @@ export class OutletService {
     @Inject(OpsAlertService) private readonly opsAlertService: OpsAlertService,
     @Inject(CloudinaryService) private readonly cloudinaryService: CloudinaryService,
     @Inject(StoredImageService) private readonly storedImageService: StoredImageService,
-    @Inject(MnotifySmsService) private readonly smsService: MnotifySmsService
+    @Inject(MnotifySmsService) private readonly smsService: MnotifySmsService,
+    @Inject(ConfigService) private readonly configService: ConfigService<EnvironmentVariables, true>
   ) {}
 
   private mapOnboardingPhotos(
@@ -417,8 +422,16 @@ export class OutletService {
   }
 
   public listVisitsForField(currentUser: AuthenticatedUser, limit: number) {
+    this.assertFieldOutletAccess(currentUser);
     const take = Math.min(100, Math.max(1, limit));
-    return this.outletRepository.listVisitsForUser(currentUser.id, take);
+    const tz = this.configService.get("ATTENDANCE_TIMEZONE", { infer: true });
+    const dayStart = DateTime.now().setZone(tz).startOf("day");
+    if (!dayStart.isValid) {
+      throw new BadRequestException(`Invalid ATTENDANCE_TIMEZONE: ${tz}`);
+    }
+    const from = dayStart.toUTC().toJSDate();
+    const to = dayStart.plus({ days: 1 }).toUTC().toJSDate();
+    return this.outletRepository.listVisitsForUser(currentUser.id, take, from, to);
   }
 
   public listVisitsForAdmin(

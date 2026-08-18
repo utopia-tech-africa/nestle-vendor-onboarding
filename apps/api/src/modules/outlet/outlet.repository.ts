@@ -329,9 +329,19 @@ export class OutletRepository {
     });
   }
 
-  public listVisitsForUser(userId: string, take: number) {
+  public listVisitsForUser(userId: string, take: number, from?: Date, to?: Date) {
     return this.prisma.outletVisit.findMany({
-      where: { userId },
+      where: {
+        userId,
+        ...(from !== undefined || to !== undefined
+          ? {
+              checkedInAt: {
+                ...(from !== undefined ? { gte: from } : {}),
+                ...(to !== undefined ? { lt: to } : {})
+              }
+            }
+          : {})
+      },
       orderBy: { checkedInAt: "desc" },
       take,
       select: {

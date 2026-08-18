@@ -363,8 +363,9 @@ export class MeController {
   @Get("outlet-visits")
   @ApiOperation({
     operationId: "Me_listOutletVisits",
-    summary: "List own outlet visits",
-    description: "Returns recent outlet visits for the authenticated field user."
+    summary: "List today's outlet visits",
+    description:
+      "Returns the authenticated promoter's vendor visits for the current local day (ATTENDANCE_TIMEZONE, resets at midnight)."
   })
   @ApiQuery({
     name: "limit",
