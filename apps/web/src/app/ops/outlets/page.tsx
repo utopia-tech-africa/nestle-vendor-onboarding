@@ -23,7 +23,7 @@ import {
   SelectValue
 } from "@/components/ui/select";
 import { VendorAvatar, VendorPhotoGallery } from "@/components/vendor-photos";
-import { useAdminRegionListRegions } from "@/lib/api/generated/client";
+import { useAdminRegionListRegions, useAdminUserListUsers } from "@/lib/api/generated/client";
 import { ApiError } from "@/lib/api/problem-details";
 import { useAuthStore } from "@/lib/auth/auth-store";
 import {
@@ -31,12 +31,13 @@ import {
   calmPrimaryButtonInlineClass,
   calmSecondaryButtonClass
 } from "@/lib/calm-ui";
-import { parseRegionsFromOrval } from "@/lib/ops/ops-adapters";
+import { parseAdminUsersFromOrval, parseRegionsFromOrval } from "@/lib/ops/ops-adapters";
 import { FALLBACK_FIELD_CATALOGS, catalogLabel, type FieldCatalogs } from "@/lib/outlet/field-catalogs";
 import {
   createOutlet,
   getFieldCatalogs,
   listOutlets,
+  uniqueOutletPromoters,
   updateOutlet,
   type CreateOutletPayload,
   type OutletRecord
@@ -47,7 +48,12 @@ const cardClass = "rounded-xl border border-border bg-card/80 p-5 shadow-sm dark
 const inputClass =
   "mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 const SELECT_NONE = "__none__";
+const SELECT_UNASSIGNED = "__unassigned__";
 const outletQueryKey = ["ops", "outlets"] as const;
+const EMPTY_OUTLETS: OutletRecord[] = [];
+
+const onboardedByLabel = (outlet: OutletRecord): string =>
+  outlet.createdBy?.fullName ?? "Not recorded";
 
 type OutletFormState = {
   name: string;
@@ -518,6 +524,7 @@ export default function OpsOutletsPage(): ReactElement {
   const [regionFilter, setRegionFilter] = useState(SELECT_NONE);
   const [typeFilter, setTypeFilter] = useState(SELECT_NONE);
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
+  const [promoterFilter, setPromoterFilter] = useState(SELECT_NONE);
 
   const regionsQuery = useAdminRegionListRegions({
     query: {
@@ -541,12 +548,39 @@ export default function OpsOutletsPage(): ReactElement {
     queryFn: async () => listOutlets(accessToken ?? ""),
     enabled: accessToken !== null
   });
-  const outlets = outletsQuery.data ?? [];
+  const outlets = outletsQuery.data ?? EMPTY_OUTLETS;
+
+  const usersQuery = useAdminUserListUsers({
+    query: {
+      enabled: accessToken !== null,
+      select: (r) => parseAdminUsersFromOrval(r)
+    }
+  });
+
+  const promoterOptions = useMemo(() => {
+    const fromUsers = (usersQuery.data ?? [])
+      .filter((user) => user.role === "promoter")
+      .map((user) => ({ id: user.id, fullName: user.fullName, phone: user.phone }));
+    const merged = new Map(fromUsers.map((user) => [user.id, user]));
+    for (const user of uniqueOutletPromoters(outlets)) {
+      if (!merged.has(user.id)) {
+        merged.set(user.id, user);
+      }
+    }
+    return [...merged.values()].sort((a, b) => a.fullName.localeCompare(b.fullName));
+  }, [outlets, usersQuery.data]);
 
   const selectedOutlet = useMemo(
     () => outlets.find((outlet) => outlet.id === selectedId) ?? null,
     [outlets, selectedId]
   );
+
+  const filtersActive =
+    search.trim().length > 0 ||
+    regionFilter !== SELECT_NONE ||
+    typeFilter !== SELECT_NONE ||
+    statusFilter !== "all" ||
+    promoterFilter !== SELECT_NONE;
 
   const filteredOutlets = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -555,6 +589,14 @@ export default function OpsOutletsPage(): ReactElement {
       if (typeFilter !== SELECT_NONE && outlet.category !== typeFilter) return false;
       if (statusFilter === "active" && !outlet.isActive) return false;
       if (statusFilter === "inactive" && outlet.isActive) return false;
+      if (promoterFilter === SELECT_UNASSIGNED && outlet.createdBy != null) return false;
+      if (
+        promoterFilter !== SELECT_NONE &&
+        promoterFilter !== SELECT_UNASSIGNED &&
+        outlet.createdBy?.id !== promoterFilter
+      ) {
+        return false;
+      }
       if (query.length === 0) return true;
       const hay = [
         outlet.vendorCode,
@@ -567,14 +609,16 @@ export default function OpsOutletsPage(): ReactElement {
         outlet.district,
         outlet.locationArea,
         outlet.landmark,
-        outlet.region?.name
+        outlet.region?.name,
+        outlet.createdBy?.fullName,
+        outlet.createdBy?.phone
       ]
         .filter(Boolean)
         .join(" ")
         .toLowerCase();
       return hay.includes(query);
     });
-  }, [outlets, regionFilter, search, statusFilter, typeFilter]);
+  }, [outlets, promoterFilter, regionFilter, search, statusFilter, typeFilter]);
 
   const createMutation = useMutation({
     mutationFn: async (payload: CreateOutletPayload) => createOutlet(accessToken ?? "", payload),
@@ -763,6 +807,23 @@ export default function OpsOutletsPage(): ReactElement {
               </SelectContent>
             </Select>
           </label>
+          <label className="text-xs font-medium text-muted-foreground">
+            Promoter
+            <Select value={promoterFilter} onValueChange={setPromoterFilter}>
+              <SelectTrigger className="mt-1 h-10 w-full">
+                <SelectValue placeholder="All promoters" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={SELECT_NONE}>All promoters</SelectItem>
+                <SelectItem value={SELECT_UNASSIGNED}>Not recorded</SelectItem>
+                {promoterOptions.map((user) => (
+                  <SelectItem key={user.id} value={user.id}>
+                    {user.fullName} ({user.phone})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </label>
         </div>
       </section>
 
@@ -772,9 +833,7 @@ export default function OpsOutletsPage(): ReactElement {
           {outletsQuery.data !== undefined ? (
             <p className="text-xs text-muted-foreground">
               {filteredOutlets.length}
-              {search.trim() || regionFilter !== SELECT_NONE || typeFilter !== SELECT_NONE || statusFilter !== "all"
-                ? ` of ${outlets.length}`
-                : ""}{" "}
+              {filtersActive ? ` of ${outlets.length}` : ""}{" "}
               vendor{filteredOutlets.length === 1 ? "" : "s"}
             </p>
           ) : null}
@@ -803,6 +862,7 @@ export default function OpsOutletsPage(): ReactElement {
                   <th className="py-2 pr-3 font-medium">Contact</th>
                   <th className="py-2 pr-3 font-medium">Phone</th>
                   <th className="py-2 pr-3 font-medium">Region</th>
+                  <th className="py-2 pr-3 font-medium">Onboarded by</th>
                   <th className="py-2 font-medium">Status</th>
                 </tr>
               </thead>
@@ -841,6 +901,7 @@ export default function OpsOutletsPage(): ReactElement {
                       <td className="py-3 pr-3 text-muted-foreground">{outlet.contactName ?? "—"}</td>
                       <td className="py-3 pr-3 text-muted-foreground">{outlet.contactPhone ?? "—"}</td>
                       <td className="py-3 pr-3 text-muted-foreground">{outlet.region?.name ?? "—"}</td>
+                      <td className="py-3 pr-3 text-muted-foreground">{onboardedByLabel(outlet)}</td>
                       <td className="py-3">
                         <span className={statusBadgeClass(outlet.isActive)}>
                           {outlet.isActive ? "Active" : "Inactive"}
@@ -942,6 +1003,14 @@ export default function OpsOutletsPage(): ReactElement {
                 catalogs.averageDailySalesBrackets,
                 selectedOutlet.averageDailySalesBracket
               )}
+            />
+            <DetailRow
+              label="Onboarded by"
+              value={
+                selectedOutlet.createdBy != null
+                  ? `${selectedOutlet.createdBy.fullName} (${selectedOutlet.createdBy.phone})`
+                  : null
+              }
             />
             <DetailRow label="Region" value={selectedOutlet.region?.name} />
             <DetailRow label="District" value={selectedOutlet.district} />

@@ -102,7 +102,9 @@ const outletSelect = {
   isActive: true,
   createdAt: true,
   updatedAt: true,
+  createdByUserId: true,
   region: { select: { id: true, name: true, slug: true } },
+  createdBy: { select: { id: true, fullName: true, phone: true, role: true } },
   onboardingPhotos: {
     select: {
       id: true,
@@ -136,6 +138,7 @@ type OutletWriteData = {
   averageDailySalesBracket?: AverageDailySalesBracket | null;
   landmark?: string | null;
   isActive: boolean;
+  createdByUserId?: string | null;
   onboardingPhotos?: {
     category: VisitPhotoCategory;
     cloudinaryPublicId: string | null;

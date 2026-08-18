@@ -332,6 +332,7 @@ export class OutletService {
       contactEmail: dto.contactEmail?.trim().toLowerCase() ?? null,
       ...this.profileFieldsFromCreate(dto),
       isActive: true,
+      createdByUserId: currentUser.id,
       ...(onboardingPhotos.length > 0 ? { onboardingPhotos } : {})
     });
 

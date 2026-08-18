@@ -25,6 +25,8 @@ export type OutletRecord = {
   landmark: string | null;
   isActive: boolean;
   region?: { id: string; name: string; slug: string } | null;
+  createdByUserId?: string | null;
+  createdBy?: { id: string; fullName: string; phone: string; role?: string } | null;
   onboardingPhotos?: OutletOnboardingPhoto[];
 };
 
@@ -429,6 +431,22 @@ export const uniqueVisitPromoters = (
         id: row.user.id,
         fullName: row.user.fullName,
         phone: row.user.phone
+      });
+    }
+  }
+  return [...users.values()].sort((a, b) => a.fullName.localeCompare(b.fullName));
+};
+
+export const uniqueOutletPromoters = (
+  outlets: Pick<OutletRecord, "createdBy">[]
+): { id: string; fullName: string; phone: string }[] => {
+  const users = new Map<string, { id: string; fullName: string; phone: string }>();
+  for (const row of outlets) {
+    if (row.createdBy != null) {
+      users.set(row.createdBy.id, {
+        id: row.createdBy.id,
+        fullName: row.createdBy.fullName,
+        phone: row.createdBy.phone
       });
     }
   }

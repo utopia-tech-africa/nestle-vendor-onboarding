@@ -116,6 +116,7 @@ model User {
   sessions     AuthSession[]
   locations    LocationPing[]
   outletVisits OutletVisit[]
+  onboardedOutlets Outlet[] @relation("OutletCreatedBy")
   workAreas    Geofence[]    @relation("PromoterWorkAreas")
 
   @@index([regionId])
@@ -243,13 +244,17 @@ model Outlet {
   averageDailySalesBracket AverageDailySalesBracket?
   landmark         String?
   isActive         Boolean  @default(true)
+  /// Promoter (or other user) who registered this vendor. Null for ops-created or legacy rows.
+  createdByUserId  String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
   region           Region?  @relation(fields: [regionId], references: [id], onDelete: SetNull)
+  createdBy        User?    @relation("OutletCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
   visits           OutletVisit[]
   onboardingPhotos OutletOnboardingPhoto[]
 
   @@index([regionId])
+  @@index([createdByUserId])
   @@index([createdAt(sort: Desc)])
 }
 
