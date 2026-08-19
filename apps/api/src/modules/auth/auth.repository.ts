@@ -8,26 +8,29 @@ import {
   type UserRole
 } from "../../generated/prisma/client";
 
-import { makeUniqueCode, normalizeUniqueCode } from "../../common/unique-code.util";
+import { makeUniqueCode, uniqueCodesMatch } from "../../common/unique-code.util";
 import { PrismaService } from "../prisma/prisma.service";
 
 @Injectable()
 export class AuthRepository {
   public constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
-  public findUserForSignIn(
+  public async findUserForSignIn(
     phone: string,
     uniqueCode: string,
     role: UserRole
   ): Promise<User | null> {
-    return this.prisma.user.findFirst({
+    const user = await this.prisma.user.findFirst({
       where: {
         phone,
-        uniqueCode: { equals: normalizeUniqueCode(uniqueCode), mode: "insensitive" },
         role,
         isActive: true
       }
     });
+    if (user === null || !uniqueCodesMatch(user.uniqueCode, uniqueCode)) {
+      return null;
+    }
+    return user;
   }
 
   public findUserByPhone(phone: string): Promise<User | null> {

@@ -14,6 +14,10 @@ export const uniqueCodePrefix = (role: UserRole): string => {
 
 export const normalizeUniqueCode = (value: string): string => value.trim().toUpperCase();
 
+/** Compare stored vs typed codes without relying on database collation. */
+export const uniqueCodesMatch = (stored: string, typed: string): boolean =>
+  normalizeUniqueCode(stored) === normalizeUniqueCode(typed);
+
 const randomBody = (): string => {
   const bytes = randomBytes(BODY_LENGTH);
   let body = "";
