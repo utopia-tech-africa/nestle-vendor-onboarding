@@ -187,6 +187,7 @@ export class OutletRepository {
     isActive?: boolean;
     createdByUserId?: string;
     unassigned?: boolean;
+    includePersonalContactSearch?: boolean;
   }) {
     const where = this.buildListWhere(params);
     const [items, total] = await Promise.all([
@@ -209,6 +210,7 @@ export class OutletRepository {
     isActive?: boolean;
     createdByUserId?: string;
     unassigned?: boolean;
+    includePersonalContactSearch?: boolean;
   }): Prisma.OutletWhereInput {
     const where: Prisma.OutletWhereInput = {};
     if (params.regionId !== undefined) {
@@ -228,29 +230,34 @@ export class OutletRepository {
 
     const query = params.search?.trim() ?? "";
     if (query.length > 0) {
-      where.OR = [
+      const or: Prisma.OutletWhereInput[] = [
         { vendorCode: { contains: query, mode: "insensitive" } },
         { name: { contains: query, mode: "insensitive" } },
         { category: { contains: query, mode: "insensitive" } },
-        { contactName: { contains: query, mode: "insensitive" } },
-        { contactPhone: { contains: query, mode: "insensitive" } },
-        { contactPhoneSecondary: { contains: query, mode: "insensitive" } },
-        { contactEmail: { contains: query, mode: "insensitive" } },
         { district: { contains: query, mode: "insensitive" } },
         { locationArea: { contains: query, mode: "insensitive" } },
         { landmark: { contains: query, mode: "insensitive" } },
         { region: { is: { name: { contains: query, mode: "insensitive" } } } },
         {
           createdBy: {
-            is: {
-              OR: [
-                { fullName: { contains: query, mode: "insensitive" } },
-                { phone: { contains: query, mode: "insensitive" } }
-              ]
-            }
+            is: { fullName: { contains: query, mode: "insensitive" } }
           }
         }
       ];
+      if (params.includePersonalContactSearch !== false) {
+        or.push(
+          { contactName: { contains: query, mode: "insensitive" } },
+          { contactPhone: { contains: query, mode: "insensitive" } },
+          { contactPhoneSecondary: { contains: query, mode: "insensitive" } },
+          { contactEmail: { contains: query, mode: "insensitive" } },
+          {
+            createdBy: {
+              is: { phone: { contains: query, mode: "insensitive" } }
+            }
+          }
+        );
+      }
+      where.OR = or;
     }
     return where;
   }

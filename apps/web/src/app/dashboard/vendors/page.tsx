@@ -104,7 +104,7 @@ export default function ClientVendorsPage(): ReactElement {
               className={inputClass}
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="Name, vendor ID, phone, district…"
+              placeholder="Name, vendor ID, district…"
             />
           </label>
           <label className="text-xs font-medium text-muted-foreground">
@@ -163,12 +163,7 @@ export default function ClientVendorsPage(): ReactElement {
                       {outlet.vendorCode ? (
                         <p className="font-mono text-xs text-foreground">{outlet.vendorCode}</p>
                       ) : null}
-                      <p className="text-xs text-muted-foreground">
-                        {outlet.category}
-                        {outlet.contactName ? ` · ${outlet.contactName}` : ""}
-                        {outlet.contactPhone ? ` · ${outlet.contactPhone}` : ""}
-                        {outlet.contactPhoneSecondary ? ` · ${outlet.contactPhoneSecondary}` : ""}
-                      </p>
+                      <p className="text-xs text-muted-foreground">{outlet.category}</p>
                       {outlet.createdBy != null ? (
                         <p className="mt-1 text-xs text-muted-foreground">
                           Onboarded by {outlet.createdBy.fullName}

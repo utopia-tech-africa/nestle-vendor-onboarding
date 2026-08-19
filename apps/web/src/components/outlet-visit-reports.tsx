@@ -67,7 +67,7 @@ const competitorSummary = (visit: OutletVisitRecord): string => {
     .join(" | ");
 };
 
-const visitToExcelRow = (visit: OutletVisitRecord, hidePromoterContact: boolean) => ({
+const visitToExcelRow = (visit: OutletVisitRecord, hidePersonalContact: boolean) => ({
   checkedInAt: visit.checkedInAt,
   vendorId: visit.outlet?.vendorCode ?? "",
   vendorName: visit.outlet?.name ?? visit.outletId,
@@ -75,7 +75,7 @@ const visitToExcelRow = (visit: OutletVisitRecord, hidePromoterContact: boolean)
   district: visit.outlet?.district ?? "",
   community: visit.outlet?.locationArea ?? "",
   promoterName: visit.user?.fullName ?? visit.userId,
-  ...(hidePromoterContact ? {} : { promoterPhone: visit.user?.phone ?? "" }),
+  ...(hidePersonalContact ? {} : { promoterPhone: visit.user?.phone ?? "" }),
   latitude: visit.latitude,
   longitude: visit.longitude,
   isComplete: visit.isComplete === false ? "No" : "Yes",
@@ -110,7 +110,7 @@ export function OutletVisitReports({
   description: string;
   fallbackName: string;
 }): ReactElement {
-  const hidePromoterContact = queryKeyPrefix === "client";
+  const hidePersonalContact = queryKeyPrefix === "client";
   const accessToken = useAuthStore((state) => state.accessToken);
   const searchParams = useSearchParams();
   const [outletId, setOutletId] = useState("");
@@ -195,12 +195,14 @@ export function OutletVisitReports({
       ...(outletsQuery.data ?? []).map((outlet) => ({
         value: outlet.id,
         label: vendorLabel(outlet),
-        keywords: [outlet.vendorCode, outlet.contactName, outlet.contactPhone, outlet.district]
-          .filter(Boolean)
-          .join(" ")
+        keywords: hidePersonalContact
+          ? [outlet.vendorCode, outlet.district].filter(Boolean).join(" ")
+          : [outlet.vendorCode, outlet.contactName, outlet.contactPhone, outlet.district]
+              .filter(Boolean)
+              .join(" ")
       }))
     ],
-    [outletsQuery.data]
+    [hidePersonalContact, outletsQuery.data]
   );
 
   const promoterSelectOptions = useMemo(
@@ -208,18 +210,18 @@ export function OutletVisitReports({
       { value: ALL_VALUE, label: "All promoters" },
       ...promoterOptions.map((user) => ({
         value: user.id,
-        label: promoterOptionLabel(user, { includePhone: !hidePromoterContact }),
-        ...(hidePromoterContact ? {} : { keywords: user.phone })
+        label: promoterOptionLabel(user, { includePhone: !hidePersonalContact }),
+        ...(hidePersonalContact ? {} : { keywords: user.phone })
       }))
     ],
-    [hidePromoterContact, promoterOptions]
+    [hidePersonalContact, promoterOptions]
   );
 
   const exportExcel = (): void => {
-    if (visits.length === 0) {
+    if (hidePersonalContact || visits.length === 0) {
       return;
     }
-    const rows = visits.map((visit) => visitToExcelRow(visit, hidePromoterContact));
+    const rows = visits.map((visit) => visitToExcelRow(visit, hidePersonalContact));
     const worksheet = XLSX.utils.json_to_sheet(rows);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Vendor Visits");
@@ -229,7 +231,7 @@ export function OutletVisitReports({
   };
 
   const exportAllPagesExcel = async (): Promise<void> => {
-    if (accessToken === null) {
+    if (hidePersonalContact || accessToken === null) {
       return;
     }
     setIsExportingAll(true);
@@ -258,7 +260,7 @@ export function OutletVisitReports({
         return;
       }
 
-      const rows = allRows.map((visit) => visitToExcelRow(visit, hidePromoterContact));
+      const rows = allRows.map((visit) => visitToExcelRow(visit, hidePersonalContact));
       const worksheet = XLSX.utils.json_to_sheet(rows);
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, "Vendor Visits");
@@ -327,6 +329,7 @@ export function OutletVisitReports({
               </span>
             ) : null}
           </h2>
+          {!hidePersonalContact ? (
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -347,6 +350,7 @@ export function OutletVisitReports({
               {isExportingAll ? "Exporting all..." : "Export all pages"}
             </button>
           </div>
+          ) : null}
         </div>
         {visitsQuery.isLoading ? (
           <BoneyardInlineFallback name={fallbackName} className="mt-3 min-h-48" />
@@ -378,7 +382,7 @@ export function OutletVisitReports({
                       </p>
                       <p className="mt-1 text-xs text-muted-foreground">
                         {visit.user?.fullName ?? visit.userId}
-                        {hidePromoterContact
+                        {hidePersonalContact
                           ? ""
                           : ` · ${visit.user?.phone?.trim() ? visit.user.phone : "No phone"}`}{" "}
                         ·{" "}

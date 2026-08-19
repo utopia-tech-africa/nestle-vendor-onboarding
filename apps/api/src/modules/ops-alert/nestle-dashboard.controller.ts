@@ -42,6 +42,13 @@ export class NestleDashboardController {
     }
   }
 
+  private assertExporter(user: AuthenticatedUser): void {
+    this.assertViewer(user);
+    if (user.role === "client") {
+      throw new ForbiddenException("Clients cannot export programme data");
+    }
+  }
+
   private async buildOverview(params: {
     from?: string;
     to?: string;
@@ -201,7 +208,7 @@ export class NestleDashboardController {
     @Query("regionId") regionId?: string,
     @Query("userId") userId?: string
   ): Promise<void> {
-    this.assertViewer(currentUser);
+    this.assertExporter(currentUser);
     const payload = await this.buildOverview({
       ...(from !== undefined ? { from } : {}),
       ...(to !== undefined ? { to } : {}),
@@ -300,7 +307,7 @@ export class NestleDashboardController {
     @Query("regionId") regionId?: string,
     @Query("userId") userId?: string
   ) {
-    this.assertViewer(currentUser);
+    this.assertExporter(currentUser);
     const fromDate = from !== undefined ? new Date(from) : undefined;
     const toDate = to !== undefined ? new Date(to) : undefined;
     const exportKind = kind?.trim() || "visits";

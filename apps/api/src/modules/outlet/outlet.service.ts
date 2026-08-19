@@ -28,7 +28,7 @@ const OUTLET_MANAGER_ROLES = new Set<UserRole>(["admin", "supervisor"]);
 const OUTLET_VIEWER_ROLES = new Set<UserRole>(["admin", "supervisor", "client"]);
 const FIELD_OUTLET_ROLES = new Set<UserRole>(["promoter"]);
 
-const hidePromoterContact = (role: UserRole): boolean => role === "client";
+const hidePersonalContact = (role: UserRole): boolean => role === "client";
 
 type OutletRow = {
   id: string;
@@ -256,9 +256,11 @@ export class OutletService {
     this.assertOutletViewer(currentUser);
     const take = Math.min(100, Math.max(1, params.limit));
     const skip = Math.max(0, params.skip ?? 0);
+    const redactContact = hidePersonalContact(currentUser.role);
     const { items, total } = await this.outletRepository.findPage({
       take,
       skip,
+      includePersonalContactSearch: !redactContact,
       ...(params.search !== undefined ? { search: params.search } : {}),
       ...(params.regionId !== undefined ? { regionId: params.regionId } : {}),
       ...(params.category !== undefined ? { category: params.category } : {}),
@@ -268,24 +270,34 @@ export class OutletService {
     });
     const decorated = await this.decorateOutlets(items);
     return {
-      items: hidePromoterContact(currentUser.role)
-        ? decorated.map((outlet) =>
-            outlet.createdBy == null ? outlet : { ...outlet, createdBy: { ...outlet.createdBy, phone: "" } }
-          )
+      items: redactContact
+        ? decorated.map((outlet) => ({
+            ...outlet,
+            contactName: null,
+            contactPhone: null,
+            contactPhoneSecondary: null,
+            contactEmail: null,
+            createdBy:
+              outlet.createdBy == null ? outlet.createdBy : { ...outlet.createdBy, phone: "" }
+          }))
         : decorated,
       total
     };
   }
 
-  public listOutletOptionsForViewer(currentUser: AuthenticatedUser) {
+  public async listOutletOptionsForViewer(currentUser: AuthenticatedUser) {
     this.assertOutletViewer(currentUser);
-    return this.outletRepository.listFilterOptions();
+    const rows = await this.outletRepository.listFilterOptions();
+    if (!hidePersonalContact(currentUser.role)) {
+      return rows;
+    }
+    return rows.map((row) => ({ ...row, contactName: null, contactPhone: null }));
   }
 
   public async listPromotersForViewer(currentUser: AuthenticatedUser) {
     this.assertOutletViewer(currentUser);
     const rows = await this.outletRepository.listPromoters();
-    if (!hidePromoterContact(currentUser.role)) {
+    if (!hidePersonalContact(currentUser.role)) {
       return rows;
     }
     return rows.map((row) => ({ ...row, phone: "" }));
@@ -512,7 +524,7 @@ export class OutletService {
       ...(fromDate !== undefined ? { from: fromDate } : {}),
       ...(toDate !== undefined ? { to: toDate } : {})
     });
-    if (!hidePromoterContact(currentUser.role)) {
+    if (!hidePersonalContact(currentUser.role)) {
       return page;
     }
     return {

@@ -3,7 +3,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { type ReactElement, useState } from "react";
-import * as XLSX from "xlsx";
 
 import { BoneyardBlock } from "@/components/boneyard/boneyard-block";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -14,17 +13,11 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select";
-import { apiRequestBlob } from "@/lib/api/http-client";
 import { useAdminRegionListRegions } from "@/lib/api/generated/client";
 import { useAuthStore } from "@/lib/auth/auth-store";
-import {
-  calmMutedLinkClass,
-  calmPrimaryButtonInlineClass,
-  calmToolbarOutlineButtonInlineClass
-} from "@/lib/calm-ui";
+import { calmMutedLinkClass, calmPrimaryButtonInlineClass } from "@/lib/calm-ui";
 import { parseRegionsFromOrval } from "@/lib/ops/ops-adapters";
-import { downloadNestleCsvUrl, downloadNestlePdfUrl, getNestleOverview } from "@/lib/outlet/outlet-api";
-import { toast } from "@/lib/toast";
+import { getNestleOverview } from "@/lib/outlet/outlet-api";
 
 const shellCard = "rounded-xl border border-border bg-card/80 shadow-sm dark:bg-card/50";
 const SELECT_ALL = "__all__";
@@ -85,139 +78,16 @@ export default function ClientProgrammePage(): ReactElement {
   const data = overviewQuery.data;
   const loading = overviewQuery.isLoading;
 
-  const downloadCsv = async (kind: "visits" | "vendors" | "competitors"): Promise<void> => {
-    if (!accessToken) return;
-    try {
-      const path = downloadNestleCsvUrl({
-        kind,
-        ...filterParams
-      });
-      const { blob } = await apiRequestBlob(path, { token: accessToken });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `nestle-${kind}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch {
-      toast.error("Could not download CSV");
-    }
-  };
-
-  const downloadPdfPack = async (): Promise<void> => {
-    if (!accessToken) return;
-    try {
-      const path = downloadNestlePdfUrl(filterParams);
-      const { blob } = await apiRequestBlob(path, { token: accessToken });
-      const headerBytes = new Uint8Array(await blob.slice(0, 5).arrayBuffer());
-      const header = String.fromCharCode(...headerBytes);
-      if (!header.startsWith("%PDF-")) {
-        throw new Error("invalid pdf");
-      }
-      const pdfBlob =
-        blob.type === "application/pdf"
-          ? blob
-          : new Blob([await blob.arrayBuffer()], { type: "application/pdf" });
-      const url = URL.createObjectURL(pdfBlob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `nestle-programme-report-${new Date().toISOString().slice(0, 10)}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
-      toast.success("PDF report downloaded.");
-    } catch {
-      toast.error("Could not download PDF");
-    }
-  };
-
-  const exportExcelPack = (): void => {
-    if (!data) {
-      toast.error("Load overview data first.");
-      return;
-    }
-    const workbook = XLSX.utils.book_new();
-    const kpiRows = [
-      { metric: "Vendors onboarded", value: data.vendorsOnboarded },
-      { metric: "Active promoters", value: data.activePromoters },
-      { metric: "Daily visits", value: data.dailyVisits },
-      { metric: "Completed questionnaires", value: data.completedQuestionnaires },
-      {
-        metric: "Visibility score avg %",
-        value: data.visibilityScoreAvg != null ? Math.round(data.visibilityScoreAvg) : ""
-      },
-      { metric: "Competitor reports", value: data.competitorReports },
-      {
-        metric: "Footfall estimated avg",
-        value: data.footfall.estimatedAvg != null ? Math.round(data.footfall.estimatedAvg) : ""
-      },
-      {
-        metric: "Footfall estimated sum",
-        value: data.footfall.estimatedSum ?? ""
-      },
-      { metric: "Incomplete visits", value: data.incompleteVisits }
-    ];
-    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(kpiRows), "KPIs");
-    XLSX.utils.book_append_sheet(
-      workbook,
-      XLSX.utils.json_to_sheet(
-        data.regionalPerformance.map((r) => ({
-          region: r.regionName,
-          vendors: r.vendorCount
-        }))
-      ),
-      "Vendor distribution"
-    );
-    const now = new Date().toISOString().slice(0, 10);
-    XLSX.writeFile(workbook, `nestle-programme-${now}.xlsx`);
-    toast.success("Excel pack downloaded. Use CSV buttons for visit-level detail.");
-  };
-
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 pb-10">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-2xl font-semibold tracking-tight">Programme overview</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Read-only Nestlé Ghana vendor onboarding KPIs and exports.
+            Read-only Nestlé Ghana vendor onboarding KPIs.
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-          <button
-            type="button"
-            className={calmToolbarOutlineButtonInlineClass}
-            onClick={() => void downloadCsv("vendors")}
-          >
-            CSV vendors
-          </button>
-          <button
-            type="button"
-            className={calmToolbarOutlineButtonInlineClass}
-            onClick={() => void downloadCsv("visits")}
-          >
-            CSV visits
-          </button>
-          <button
-            type="button"
-            className={calmToolbarOutlineButtonInlineClass}
-            onClick={() => void downloadCsv("competitors")}
-          >
-            CSV competitors
-          </button>
-          <button
-            type="button"
-            className={calmToolbarOutlineButtonInlineClass}
-            onClick={exportExcelPack}
-            disabled={!data}
-          >
-            Excel pack
-          </button>
-          <button
-            type="button"
-            className={calmToolbarOutlineButtonInlineClass}
-            onClick={() => void downloadPdfPack()}
-          >
-            PDF pack
-          </button>
           <button
             type="button"
             className={calmPrimaryButtonInlineClass}
