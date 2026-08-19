@@ -26,8 +26,8 @@ export const PHOTO_CATEGORIES: {
   {
     id: "vendor",
     label: "Vendor photo",
-    hint: "The vendor's face at the stall.",
-    facingMode: "user"
+    hint: "The vendor's face at the stall. Use the back camera, or switch to the front if needed.",
+    facingMode: "environment"
   },
   {
     id: "shop",

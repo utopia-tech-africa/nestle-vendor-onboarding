@@ -23,6 +23,7 @@ export function SelfieCapture({
       onPhotoReady={onPhotoReady}
       disabled={disabled}
       facingMode="user"
+      allowCameraSwitch={false}
       description="Take a clear selfie (face visible). This confirms you are present for the check-in. Use a private HTTPS connection; your browser will ask for camera access."
       previewAlt="Selfie preview"
       openButtonLabel="Open camera"

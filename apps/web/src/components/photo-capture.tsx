@@ -6,11 +6,15 @@ import { calmPrimaryButtonClass, calmSecondaryButtonClass } from "@/lib/calm-ui"
 import { compressJpegDataUrl } from "@/lib/image/compress-jpeg-data-url";
 import { resolvePhotoStampLocation, stampPhotoTimestamp } from "@/lib/image/stamp-photo-timestamp";
 
+export type PhotoCaptureFacingMode = "user" | "environment";
+
 export type PhotoCaptureProps = {
   onPhotoReady: (jpegDataUrl: string) => void;
   disabled?: boolean;
   /** `user` for selfies; `environment` for outlet / shop photos (rear camera on phones). */
-  facingMode?: "user" | "environment";
+  facingMode?: PhotoCaptureFacingMode;
+  /** When true, the live camera can flip between front and back. */
+  allowCameraSwitch?: boolean;
   description?: string;
   previewAlt?: string;
   openButtonLabel?: string;
@@ -19,6 +23,10 @@ export type PhotoCaptureProps = {
   longitude?: number;
 };
 
+const videoConstraints = (mode: PhotoCaptureFacingMode): MediaTrackConstraints => ({
+  facingMode: { ideal: mode }
+});
+
 /**
  * In-browser camera capture. Emits a JPEG data URL when the user confirms a preview.
  */
@@ -26,6 +34,7 @@ export function PhotoCapture({
   onPhotoReady,
   disabled = false,
   facingMode = "user",
+  allowCameraSwitch = true,
   description = "Use a private HTTPS connection; your browser will ask for camera access.",
   previewAlt = "Photo preview",
   openButtonLabel = "Open camera",
@@ -33,22 +42,25 @@ export function PhotoCapture({
   longitude
 }: PhotoCaptureProps): ReactElement {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
+  const [activeFacing, setActiveFacing] = useState<PhotoCaptureFacingMode>(facingMode);
   const [error, setError] = useState<string | null>(null);
   const [isCompressing, setIsCompressing] = useState(false);
+  const [isSwitching, setIsSwitching] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [cameraOpen, setCameraOpen] = useState(false);
   const stampLocationRef = useRef<Awaited<ReturnType<typeof resolvePhotoStampLocation>>>(undefined);
 
   const stopStream = useCallback((): void => {
-    setStream((prev) => {
-      if (prev) {
-        prev.getTracks().forEach((track) => {
-          track.stop();
-        });
-      }
-      return null;
-    });
+    const current = streamRef.current;
+    if (current) {
+      current.getTracks().forEach((track) => {
+        track.stop();
+      });
+    }
+    streamRef.current = null;
+    setStream(null);
   }, []);
 
   useEffect(() => {
@@ -79,20 +91,32 @@ export function PhotoCapture({
     });
   }, [cameraOpen, latitude, longitude]);
 
-  const startCamera = async (): Promise<void> => {
+  const startCamera = async (mode: PhotoCaptureFacingMode = activeFacing): Promise<void> => {
     setError(null);
+    stopStream();
     try {
       const media = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode },
+        video: videoConstraints(mode),
         audio: false
       });
+      streamRef.current = media;
       setStream(media);
+      setActiveFacing(mode);
       setCameraOpen(true);
       setPreviewUrl(null);
     } catch (caught) {
+      setCameraOpen(false);
       const message = caught instanceof Error ? caught.message : "Camera unavailable";
       setError(message);
     }
+  };
+
+  const switchCamera = (): void => {
+    const next: PhotoCaptureFacingMode = activeFacing === "user" ? "environment" : "user";
+    setIsSwitching(true);
+    void startCamera(next).finally(() => {
+      setIsSwitching(false);
+    });
   };
 
   const captureFrame = (): void => {
@@ -189,15 +213,29 @@ export function PhotoCapture({
             <button
               type="button"
               className={calmPrimaryButtonClass}
-              disabled={disabled || isCompressing}
+              disabled={disabled || isCompressing || isSwitching}
               onClick={captureFrame}
             >
               Capture
             </button>
+            {allowCameraSwitch ? (
+              <button
+                type="button"
+                className={calmSecondaryButtonClass}
+                disabled={disabled || isSwitching}
+                onClick={switchCamera}
+              >
+                {isSwitching
+                  ? "Switching…"
+                  : activeFacing === "user"
+                    ? "Use back camera"
+                    : "Use front camera"}
+              </button>
+            ) : null}
             <button
               type="button"
               className={calmSecondaryButtonClass}
-              disabled={disabled}
+              disabled={disabled || isSwitching}
               onClick={cancelCamera}
             >
               Cancel
