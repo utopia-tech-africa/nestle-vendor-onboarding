@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { Transform } from "class-transformer";
 import {
   IsIn,
   IsNumber,
@@ -11,6 +12,7 @@ import {
 } from "class-validator";
 
 import { PhoneNumberField } from "../../../common/decorators/phone.decorators";
+import { normalizeUniqueCode } from "../../../common/unique-code.util";
 
 export class SignInDto {
   @ApiProperty({
@@ -22,7 +24,12 @@ export class SignInDto {
   @PhoneNumberField()
   public phone!: string;
 
-  @ApiProperty({ type: String, example: "P-12ab34cd", description: "Unique promoter code" })
+  @ApiProperty({
+    type: String,
+    example: "P-K7M2Q9X4",
+    description: "Unique access code (uppercase letters mixed with numbers)"
+  })
+  @Transform(({ value }) => (typeof value === "string" ? normalizeUniqueCode(value) : value))
   @IsString()
   @MinLength(3)
   @MaxLength(64)

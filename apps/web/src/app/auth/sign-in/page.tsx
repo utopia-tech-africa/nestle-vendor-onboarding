@@ -109,7 +109,7 @@ function SignInForm(): ReactElement {
         <FormControl label="Phone number">
           <Input
             name="phone"
-            placeholder="0244123456 or +233244123456"
+            placeholder="0244123456"
             value={phone}
             onChange={(event) => {
               setPhone(event.currentTarget.value);
@@ -121,10 +121,10 @@ function SignInForm(): ReactElement {
         <FormControl label="Unique code">
           <Input
             name="uniqueCode"
-            placeholder="P-12ab34cd"
+            placeholder="P-K7M2Q9X4"
             value={uniqueCode}
             onChange={(event) => {
-              setUniqueCode(event.currentTarget.value);
+              setUniqueCode(event.currentTarget.value.toUpperCase());
             }}
             required
           />

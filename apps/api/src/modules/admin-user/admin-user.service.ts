@@ -9,6 +9,7 @@ import {
 } from "@nestjs/common";
 
 import type { AuthenticatedUser, UserRole } from "../../common/types/authenticated-user.type";
+import { makeUniqueCode } from "../../common/unique-code.util";
 import type { UserRole as PrismaUserRole } from "../../generated/prisma/client";
 import { MnotifySmsService } from "../sms/mnotify-sms.service";
 import { GeofenceRepository } from "../geofence/geofence.repository";
@@ -97,7 +98,7 @@ export class AdminUserService {
       throw new ConflictException("A user with this phone already exists");
     }
 
-    const uniqueCode = AdminUserRepository.makeUniqueCodeForRole(role);
+    const uniqueCode = makeUniqueCode(role);
     const email =
       dto.email !== undefined && dto.email.trim().length > 0 ? dto.email.trim().toLowerCase() : null;
 

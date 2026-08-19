@@ -4,12 +4,11 @@
  */
 import "dotenv/config";
 
-import { randomUUID } from "node:crypto";
-
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 
 import { PrismaClient } from "../generated/prisma/client";
+import { makeUniqueCode } from "../common/unique-code.util";
 
 const normalizePhone = (raw: string): string => {
   const compact = raw.trim().replace(/[\s().-]/g, "");
@@ -31,7 +30,7 @@ const main = async (): Promise<void> => {
   }
 
   const phone = normalizePhone(phoneRaw);
-  const uniqueCode = `A-${randomUUID().slice(0, 8)}`;
+  const uniqueCode = makeUniqueCode("admin");
 
   const connectionString = process.env["DATABASE_URL"];
   if (connectionString === undefined || connectionString.length === 0) {

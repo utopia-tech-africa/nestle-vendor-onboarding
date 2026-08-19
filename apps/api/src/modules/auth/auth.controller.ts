@@ -87,7 +87,7 @@ export class AuthController {
       default: {
         value: {
           phone: "0244123456",
-          uniqueCode: "P-12ab34cd",
+          uniqueCode: "P-K7M2Q9X4",
           role: "promoter"
         }
       }
@@ -102,7 +102,7 @@ export class AuthController {
           fullName: "John Doe",
           email: null,
           phone: "0244123456",
-          uniqueCode: "P-12ab34cd",
+          uniqueCode: "P-K7M2Q9X4",
           role: "promoter",
           gender: "male",
           regionId: "nairobi-west",
@@ -202,7 +202,7 @@ export class AuthController {
           fullName: "John Doe",
           email: "john.doe@example.com",
           phone: "pending-a8e4c2f7f9d1",
-          uniqueCode: "P-12ab34cd",
+          uniqueCode: "P-K7M2Q9X4",
           role: "promoter",
           gender: null,
           regionId: null,
@@ -273,7 +273,7 @@ export class AuthController {
           fullName: "John Doe",
           email: "john.doe@example.com",
           phone: "0244123456",
-          uniqueCode: "P-12ab34cd",
+          uniqueCode: "P-K7M2Q9X4",
           role: "promoter",
           gender: "male",
           regionId: "nairobi-west",

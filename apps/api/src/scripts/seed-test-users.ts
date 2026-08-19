@@ -28,25 +28,25 @@ const SEED_USERS: SeedUser[] = [
   {
     fullName: "Test Promoter",
     phone: "0200000001",
-    uniqueCode: "P-test0001",
+    uniqueCode: "P-TEST0001",
     role: "promoter"
   },
   {
     fullName: "Test Client",
     phone: "0200000002",
-    uniqueCode: "C-test0002",
+    uniqueCode: "C-TEST0002",
     role: "client"
   },
   {
     fullName: "Test Supervisor",
     phone: "0200000003",
-    uniqueCode: "S-test0003",
+    uniqueCode: "S-TEST0003",
     role: "supervisor"
   },
   {
     fullName: "Test Admin",
     phone: "0200000004",
-    uniqueCode: "A-test0004",
+    uniqueCode: "A-TEST0004",
     role: "admin"
   }
 ];
@@ -194,8 +194,8 @@ const main = async (): Promise<void> => {
     console.log(`questionnaire ${form.title} (${String(questions.length)} questions, active)`);
 
     console.log("\nSign in at /auth/sign-in with phone + access code + matching role.");
-    console.log("Supervisor: 0200000003 / S-test0003");
-    console.log("Promoter:   0200000001 / P-test0001 (region: Greater Accra)");
+    console.log("Supervisor: 0200000003 / S-TEST0003");
+    console.log("Promoter:   0200000001 / P-TEST0001 (region: Greater Accra)");
     if (seedAlertEmail !== null) {
       console.log(`Alert email: supervisor seeded with ${seedAlertEmail} (SEED_ALERT_EMAIL)`);
     } else {

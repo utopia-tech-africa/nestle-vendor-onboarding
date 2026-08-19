@@ -11,11 +11,10 @@
  */
 import "dotenv/config";
 
-import { randomUUID } from "node:crypto";
-
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 
+import { makeUniqueCode } from "../common/unique-code.util";
 import { PrismaClient, type UserRole } from "../generated/prisma/client";
 
 const DEFAULT_INVITE_APP_URL = "https://nestle-vendor-onboarding.vercel.app";
@@ -59,12 +58,6 @@ const normalizePhone = (raw: string): string => {
     throw new Error(`Invalid phone: ${raw}`);
   }
   return compact;
-};
-
-const makeUniqueCode = (role: UserRole): string => {
-  const prefix =
-    role === "promoter" ? "P" : role === "client" ? "C" : role === "supervisor" ? "S" : "A";
-  return `${prefix}-${randomUUID().slice(0, 8)}`;
 };
 
 const inviteAppUrl = (): string => {

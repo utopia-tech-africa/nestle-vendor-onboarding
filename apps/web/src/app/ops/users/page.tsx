@@ -55,6 +55,8 @@ const FIELD_ROLES = [
 /** Radix Select requires a non-empty value; map to/from optional region & gender. */
 const SELECT_NONE = "__none__";
 
+const accessCodeLabel = (code: string): string => code.toUpperCase();
+
 const toggleId = (ids: string[], id: string): string[] =>
   ids.includes(id) ? ids.filter((item) => item !== id) : [...ids, id];
 
@@ -281,7 +283,7 @@ export default function OpsUsersPage(): ReactElement {
           try {
             const user = parseAdminUserFromOrval(result);
             toast.success("User invited", {
-              description: `${user.fullName} · ${user.phone} · Access code: ${user.uniqueCode}`
+              description: `${user.fullName} · ${user.phone} · Access code: ${user.uniqueCode.toUpperCase()}`
             });
           } catch {
             toast.success("User invited", {
@@ -588,7 +590,7 @@ export default function OpsUsersPage(): ReactElement {
                     <td className="px-3 py-2 capitalize text-muted-foreground">{row.role}</td>
                     <td className="px-3 py-2 text-muted-foreground">{row.phone}</td>
                     <td className="px-3 py-2">
-                      <code className="text-xs text-foreground">{row.uniqueCode}</code>
+                      <code className="text-xs text-foreground">{accessCodeLabel(row.uniqueCode)}</code>
                     </td>
                     <td className="px-3 py-2 text-muted-foreground">{row.region?.name ?? "—"}</td>
                     <td className="px-3 py-2 text-muted-foreground">
@@ -615,7 +617,7 @@ export default function OpsUsersPage(): ReactElement {
                           type="button"
                           className="text-xs font-medium text-primary hover:underline"
                           onClick={() => {
-                            void navigator.clipboard.writeText(row.uniqueCode);
+                            void navigator.clipboard.writeText(accessCodeLabel(row.uniqueCode));
                           }}
                         >
                           Copy code
@@ -661,7 +663,9 @@ export default function OpsUsersPage(): ReactElement {
                 <div>
                   <p className="font-medium text-foreground">{row.fullName}</p>
                   <p className="text-xs capitalize text-muted-foreground">{row.role}</p>
-                  <p className="mt-2 font-mono text-[11px] text-foreground">{row.uniqueCode}</p>
+                  <p className="mt-2 font-mono text-[11px] text-foreground">
+                    {accessCodeLabel(row.uniqueCode)}
+                  </p>
                   {row.role === "promoter" && row.workAreas.length > 0 ? (
                     <p className="mt-1 text-xs text-muted-foreground">
                       {row.workAreas.map((area) => area.label).join(", ")}
@@ -722,7 +726,7 @@ export default function OpsUsersPage(): ReactElement {
             </h2>
             <p className="mt-1 text-xs text-muted-foreground">
               Id: <code className="text-foreground">{editing.id}</code> · Access code:{" "}
-              <code className="text-foreground">{editing.uniqueCode}</code>
+              <code className="text-foreground">{accessCodeLabel(editing.uniqueCode)}</code>
             </p>
             <form className="mt-4 space-y-3" onSubmit={onEditSubmit}>
               <div>

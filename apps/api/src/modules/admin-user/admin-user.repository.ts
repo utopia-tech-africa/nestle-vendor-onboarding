@@ -1,5 +1,3 @@
-import { randomUUID } from "node:crypto";
-
 import { Inject, Injectable } from "@nestjs/common";
 import type { AuthProvider, Gender, UserRole } from "../../generated/prisma/client";
 
@@ -131,11 +129,5 @@ export class AdminUserRepository {
       },
       select: userAdminSelect
     });
-  }
-
-  public static makeUniqueCodeForRole(role: UserRole): string {
-    const prefix =
-      role === "promoter" ? "P" : role === "client" ? "C" : role === "supervisor" ? "S" : "A";
-    return `${prefix}-${randomUUID().slice(0, 8)}`;
   }
 }

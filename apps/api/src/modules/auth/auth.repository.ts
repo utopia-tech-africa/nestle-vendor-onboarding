@@ -8,6 +8,7 @@ import {
   type UserRole
 } from "../../generated/prisma/client";
 
+import { makeUniqueCode, normalizeUniqueCode } from "../../common/unique-code.util";
 import { PrismaService } from "../prisma/prisma.service";
 
 @Injectable()
@@ -22,7 +23,7 @@ export class AuthRepository {
     return this.prisma.user.findFirst({
       where: {
         phone,
-        uniqueCode,
+        uniqueCode: { equals: normalizeUniqueCode(uniqueCode), mode: "insensitive" },
         role,
         isActive: true
       }
@@ -61,7 +62,7 @@ export class AuthRepository {
         role: "promoter",
         authProvider: "credentials",
         ...(payload.regionId !== undefined ? { regionId: payload.regionId } : {}),
-        uniqueCode: `P-${randomUUID().slice(0, 8)}`
+        uniqueCode: makeUniqueCode("promoter")
       }
     });
   }
@@ -78,7 +79,7 @@ export class AuthRepository {
         googleSub: payload.googleSub,
         authProvider: "google",
         phone: `pending-${randomUUID().slice(0, 12)}`,
-        uniqueCode: `P-${randomUUID().slice(0, 8)}`,
+        uniqueCode: makeUniqueCode("promoter"),
         role: "promoter"
       }
     });
