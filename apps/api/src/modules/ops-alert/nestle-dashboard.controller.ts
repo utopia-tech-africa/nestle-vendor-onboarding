@@ -414,8 +414,10 @@ export class NestleDashboardController {
       return;
     }
 
-    const header =
-      "visitId,vendor,community,district,promoter,phone,latitude,longitude,traffic,footfallEstimated,peakPeriods,nestleProducts,visibilityScore,complete,checkedInAt";
+    const includePromoterPhone = currentUser.role !== "client";
+    const header = includePromoterPhone
+      ? "visitId,vendor,community,district,promoter,phone,latitude,longitude,traffic,footfallEstimated,peakPeriods,nestleProducts,visibilityScore,complete,checkedInAt"
+      : "visitId,vendor,community,district,promoter,latitude,longitude,traffic,footfallEstimated,peakPeriods,nestleProducts,visibilityScore,complete,checkedInAt";
     const rows = visits.map((v) =>
       [
         v.id,
@@ -423,7 +425,7 @@ export class NestleDashboardController {
         csv(v.outlet.locationArea),
         csv(v.outlet.district),
         csv(v.user.fullName),
-        csv(v.user.phone),
+        ...(includePromoterPhone ? [csv(v.user.phone)] : []),
         v.latitude,
         v.longitude,
         v.trafficCategory ?? "",

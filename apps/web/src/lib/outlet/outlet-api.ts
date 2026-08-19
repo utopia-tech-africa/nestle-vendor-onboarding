@@ -26,7 +26,7 @@ export type OutletRecord = {
   isActive: boolean;
   region?: { id: string; name: string; slug: string } | null;
   createdByUserId?: string | null;
-  createdBy?: { id: string; fullName: string; phone: string; role?: string } | null;
+  createdBy?: { id: string; fullName: string; phone?: string; role?: string } | null;
   onboardingPhotos?: OutletOnboardingPhoto[];
 };
 
@@ -230,7 +230,7 @@ export type OutletVisitRecord = {
   user?: {
     id: string;
     fullName: string;
-    phone: string;
+    phone?: string;
     role: string;
   };
 };
@@ -489,30 +489,39 @@ export const formatVisitPageLabel = (skip: number, shown: number, total: number)
 export type PromoterRecord = {
   id: string;
   fullName: string;
-  phone: string;
+  phone?: string;
   isActive: boolean;
 };
 
-export const promoterOptionLabel = (user: {
-  fullName: string;
-  phone: string;
-  isActive?: boolean;
-}): string =>
-  `${user.fullName} (${user.phone})${user.isActive === false ? " · inactive" : ""}`;
+export const promoterOptionLabel = (
+  user: {
+    fullName: string;
+    phone?: string;
+    isActive?: boolean;
+  },
+  options?: { includePhone?: boolean }
+): string => {
+  const phone = user.phone?.trim() ?? "";
+  const showPhone = options?.includePhone !== false && phone.length > 0;
+  const name = showPhone ? `${user.fullName} (${phone})` : user.fullName;
+  return `${name}${user.isActive === false ? " · inactive" : ""}`;
+};
 
 export const listPromoters = async (token: string): Promise<PromoterRecord[]> =>
   apiRequest<PromoterRecord[]>("/admin/outlets/promoters", { token });
 
 export const uniqueVisitPromoters = (
   visits: OutletVisitRecord[]
-): { id: string; fullName: string; phone: string }[] => {
-  const users = new Map<string, { id: string; fullName: string; phone: string }>();
+): { id: string; fullName: string; phone?: string }[] => {
+  const users = new Map<string, { id: string; fullName: string; phone?: string }>();
   for (const row of visits) {
     if (row.user !== undefined) {
       users.set(row.user.id, {
         id: row.user.id,
         fullName: row.user.fullName,
-        phone: row.user.phone
+        ...(row.user.phone !== undefined && row.user.phone.trim().length > 0
+          ? { phone: row.user.phone }
+          : {})
       });
     }
   }

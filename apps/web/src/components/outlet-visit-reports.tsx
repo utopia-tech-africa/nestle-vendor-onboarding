@@ -67,7 +67,7 @@ const competitorSummary = (visit: OutletVisitRecord): string => {
     .join(" | ");
 };
 
-const visitToExcelRow = (visit: OutletVisitRecord) => ({
+const visitToExcelRow = (visit: OutletVisitRecord, hidePromoterContact: boolean) => ({
   checkedInAt: visit.checkedInAt,
   vendorId: visit.outlet?.vendorCode ?? "",
   vendorName: visit.outlet?.name ?? visit.outletId,
@@ -75,7 +75,7 @@ const visitToExcelRow = (visit: OutletVisitRecord) => ({
   district: visit.outlet?.district ?? "",
   community: visit.outlet?.locationArea ?? "",
   promoterName: visit.user?.fullName ?? visit.userId,
-  promoterPhone: visit.user?.phone ?? "",
+  ...(hidePromoterContact ? {} : { promoterPhone: visit.user?.phone ?? "" }),
   latitude: visit.latitude,
   longitude: visit.longitude,
   isComplete: visit.isComplete === false ? "No" : "Yes",
@@ -110,6 +110,7 @@ export function OutletVisitReports({
   description: string;
   fallbackName: string;
 }): ReactElement {
+  const hidePromoterContact = queryKeyPrefix === "client";
   const accessToken = useAuthStore((state) => state.accessToken);
   const searchParams = useSearchParams();
   const [outletId, setOutletId] = useState("");
@@ -207,18 +208,18 @@ export function OutletVisitReports({
       { value: ALL_VALUE, label: "All promoters" },
       ...promoterOptions.map((user) => ({
         value: user.id,
-        label: promoterOptionLabel(user),
-        keywords: user.phone
+        label: promoterOptionLabel(user, { includePhone: !hidePromoterContact }),
+        ...(hidePromoterContact ? {} : { keywords: user.phone })
       }))
     ],
-    [promoterOptions]
+    [hidePromoterContact, promoterOptions]
   );
 
   const exportExcel = (): void => {
     if (visits.length === 0) {
       return;
     }
-    const rows = visits.map(visitToExcelRow);
+    const rows = visits.map((visit) => visitToExcelRow(visit, hidePromoterContact));
     const worksheet = XLSX.utils.json_to_sheet(rows);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Vendor Visits");
@@ -257,7 +258,7 @@ export function OutletVisitReports({
         return;
       }
 
-      const rows = allRows.map(visitToExcelRow);
+      const rows = allRows.map((visit) => visitToExcelRow(visit, hidePromoterContact));
       const worksheet = XLSX.utils.json_to_sheet(rows);
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, "Vendor Visits");
@@ -376,7 +377,11 @@ export function OutletVisitReports({
                         {new Date(visit.checkedInAt).toLocaleString()}
                       </p>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        {visit.user?.fullName ?? visit.userId} · {visit.user?.phone ?? "No phone"} ·{" "}
+                        {visit.user?.fullName ?? visit.userId}
+                        {hidePromoterContact
+                          ? ""
+                          : ` · ${visit.user?.phone?.trim() ? visit.user.phone : "No phone"}`}{" "}
+                        ·{" "}
                         {[visit.outlet?.district, visit.outlet?.locationArea]
                           .filter((p) => p != null && p.trim().length > 0)
                           .join(" · ") || "No community"}

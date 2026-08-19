@@ -75,7 +75,6 @@ export default function ClientVendorsPage(): ReactElement {
         merged.set(outlet.createdBy.id, {
           id: outlet.createdBy.id,
           fullName: outlet.createdBy.fullName,
-          phone: outlet.createdBy.phone,
           isActive: true
         });
       }
@@ -120,8 +119,7 @@ export default function ClientVendorsPage(): ReactElement {
                 { value: SELECT_UNASSIGNED, label: "Not recorded" },
                 ...promoterOptions.map((user) => ({
                   value: user.id,
-                  label: promoterOptionLabel(user),
-                  keywords: user.phone
+                  label: promoterOptionLabel(user, { includePhone: false })
                 }))
               ]}
             />

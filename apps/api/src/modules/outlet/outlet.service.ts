@@ -28,6 +28,8 @@ const OUTLET_MANAGER_ROLES = new Set<UserRole>(["admin", "supervisor"]);
 const OUTLET_VIEWER_ROLES = new Set<UserRole>(["admin", "supervisor", "client"]);
 const FIELD_OUTLET_ROLES = new Set<UserRole>(["promoter"]);
 
+const hidePromoterContact = (role: UserRole): boolean => role === "client";
+
 type OutletRow = {
   id: string;
   latitude: number | null;
@@ -264,8 +266,13 @@ export class OutletService {
       ...(params.createdByUserId !== undefined ? { createdByUserId: params.createdByUserId } : {}),
       ...(params.unassigned === true ? { unassigned: true } : {})
     });
+    const decorated = await this.decorateOutlets(items);
     return {
-      items: await this.decorateOutlets(items),
+      items: hidePromoterContact(currentUser.role)
+        ? decorated.map((outlet) =>
+            outlet.createdBy == null ? outlet : { ...outlet, createdBy: { ...outlet.createdBy, phone: "" } }
+          )
+        : decorated,
       total
     };
   }
@@ -275,9 +282,13 @@ export class OutletService {
     return this.outletRepository.listFilterOptions();
   }
 
-  public listPromotersForViewer(currentUser: AuthenticatedUser) {
+  public async listPromotersForViewer(currentUser: AuthenticatedUser) {
     this.assertOutletViewer(currentUser);
-    return this.outletRepository.listPromoters();
+    const rows = await this.outletRepository.listPromoters();
+    if (!hidePromoterContact(currentUser.role)) {
+      return rows;
+    }
+    return rows.map((row) => ({ ...row, phone: "" }));
   }
 
   public async createForAdmin(currentUser: AuthenticatedUser, dto: CreateOutletDto) {
@@ -471,7 +482,7 @@ export class OutletService {
     return this.outletRepository.listVisitsForUser(currentUser.id, take, from, to);
   }
 
-  public listVisitsForAdmin(
+  public async listVisitsForAdmin(
     currentUser: AuthenticatedUser,
     params: {
       limit: number;
@@ -493,7 +504,7 @@ export class OutletService {
     if (toDate !== undefined && Number.isNaN(toDate.getTime())) {
       throw new BadRequestException("to must be a valid ISO datetime");
     }
-    return this.outletRepository.listVisitsForAdmin({
+    const page = await this.outletRepository.listVisitsForAdmin({
       take,
       ...(skip > 0 ? { skip } : {}),
       ...(params.outletId !== undefined ? { outletId: params.outletId } : {}),
@@ -501,5 +512,15 @@ export class OutletService {
       ...(fromDate !== undefined ? { from: fromDate } : {}),
       ...(toDate !== undefined ? { to: toDate } : {})
     });
+    if (!hidePromoterContact(currentUser.role)) {
+      return page;
+    }
+    return {
+      ...page,
+      items: page.items.map((visit) => ({
+        ...visit,
+        user: visit.user == null ? visit.user : { ...visit.user, phone: "" }
+      }))
+    };
   }
 }

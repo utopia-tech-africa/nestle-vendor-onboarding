@@ -51,7 +51,7 @@ export class TrackingService {
       user: {
         id: ping.user.id,
         fullName: ping.user.fullName,
-        phone: ping.user.phone,
+        phone: currentUser.role === "client" ? "" : ping.user.phone,
         role: ping.user.role
       }
     };

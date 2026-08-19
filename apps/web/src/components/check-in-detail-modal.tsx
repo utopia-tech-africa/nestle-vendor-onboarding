@@ -152,8 +152,12 @@ export function CheckInDetailModal({
                       <User className="size-3 shrink-0 opacity-70" aria-hidden />
                       {detail.user.role}
                     </span>
-                    <span className="text-border">·</span>
-                    <span className="tabular-nums">{detail.user.phone}</span>
+                    {detail.user.phone.trim().length > 0 ? (
+                      <>
+                        <span className="text-border">·</span>
+                        <span className="tabular-nums">{detail.user.phone}</span>
+                      </>
+                    ) : null}
                   </div>
                 </div>
               </div>

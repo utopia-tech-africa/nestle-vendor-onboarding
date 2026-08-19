@@ -71,7 +71,14 @@ export class AttendanceAdminService {
     const date = this.parseCalendarDate(dateRaw);
     const trimmedRegion =
       regionId !== undefined && regionId.trim().length > 0 ? regionId.trim() : undefined;
-    return this.computeDailyRollup(date, trimmedRegion);
+    const rollup = await this.computeDailyRollup(date, trimmedRegion);
+    if (currentUser.role !== "client") {
+      return rollup;
+    }
+    return {
+      ...rollup,
+      rows: rollup.rows.map((row) => ({ ...row, phone: "" }))
+    };
   }
 
   private async computeDailyRollup(
