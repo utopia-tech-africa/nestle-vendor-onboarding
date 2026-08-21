@@ -59,7 +59,11 @@ export class OutletController {
     schema: { type: "integer", default: 0, minimum: 0 }
   })
   @ApiQuery({ name: "search", required: false, description: "Vendor ID, name, phone, district, promoter…" })
-  @ApiQuery({ name: "regionId", required: false, description: "Filter by region id" })
+  @ApiQuery({
+    name: "regionId",
+    required: false,
+    description: "Filter by the onboarded-by promoter’s region id (not the vendor’s location region)"
+  })
   @ApiQuery({ name: "category", required: false, description: "Filter by vendor type" })
   @ApiQuery({
     name: "status",

@@ -43,7 +43,7 @@ export const buildNestleOverviewPdf = async (
   const rangeParts: string[] = [];
   if (filters.from) rangeParts.push(`From ${filters.from}`);
   if (filters.to) rangeParts.push(`To ${filters.to}`);
-  if (filters.regionName) rangeParts.push(`Region: ${filters.regionName}`);
+  if (filters.regionName) rangeParts.push(`Promoter region: ${filters.regionName}`);
   if (filters.promoterName) rangeParts.push(`Promoter: ${filters.promoterName}`);
   const filterLine = rangeParts.length > 0 ? rangeParts.join(" · ") : "All dates and regions";
 
@@ -76,7 +76,7 @@ export const buildNestleOverviewPdf = async (
     `- Estimated footfall (sum): ${fmt(payload.footfall.estimatedSum)}`,
     `- Manual footfall (sum): ${fmt(payload.footfall.manualSum)}`,
     "",
-    "Vendor distribution by region",
+    "Vendor distribution by promoter region",
     ...regionalLines,
     "",
     "Notes",

@@ -214,7 +214,7 @@ export class OutletRepository {
   }): Prisma.OutletWhereInput {
     const where: Prisma.OutletWhereInput = {};
     if (params.regionId !== undefined) {
-      where.regionId = params.regionId;
+      where.createdBy = { is: { regionId: params.regionId } };
     }
     if (params.category !== undefined) {
       where.category = params.category;

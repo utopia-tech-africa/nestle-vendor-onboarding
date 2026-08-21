@@ -734,7 +734,8 @@ export default function OpsOutletsPage(): ReactElement {
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">Vendors</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Master list of koko vendors. Each vendor gets a region-based ID such as{" "}
+            Master list of koko vendors. Filter by promoter region to see who that territory’s
+            promoters onboarded. Each vendor gets a region-based ID such as{" "}
             <code className="text-xs">GA-001</code>. Click a row for details.
           </p>
           <p className="mt-1 text-sm">
@@ -765,14 +766,14 @@ export default function OpsOutletsPage(): ReactElement {
             />
           </label>
           <label className="text-xs font-medium text-muted-foreground">
-            Region
+            Promoter region
             <SearchableSelect
               value={regionFilter}
               onValueChange={setRegionFilter}
-              placeholder="All regions"
+              placeholder="All promoter regions"
               searchPlaceholder="Search regions…"
               options={[
-                { value: SELECT_NONE, label: "All regions" },
+                { value: SELECT_NONE, label: "All promoter regions" },
                 ...regions.map((region) => ({ value: region.id, label: region.name }))
               ]}
             />

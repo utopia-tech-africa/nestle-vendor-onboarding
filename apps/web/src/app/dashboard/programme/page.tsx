@@ -100,6 +100,9 @@ export default function ClientProgrammePage(): ReactElement {
 
       <section className={`${shellCard} p-4`}>
         <h2 className="text-sm font-semibold">Filters</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Region for vendors onboarded is the promoter’s assigned territory.
+        </p>
         <div className="mt-3 grid gap-3 sm:grid-cols-3">
           <label className="text-xs font-medium text-muted-foreground">
             From
@@ -160,7 +163,7 @@ export default function ClientProgrammePage(): ReactElement {
 
       <section className={`${shellCard} p-4`}>
         <div className="mb-3 flex items-center justify-between gap-2">
-          <h2 className="text-sm font-semibold">Regional performance</h2>
+          <h2 className="text-sm font-semibold">Vendors by promoter region</h2>
           <Link href="/dashboard/visits-map" className={calmMutedLinkClass}>
             Visits map
           </Link>

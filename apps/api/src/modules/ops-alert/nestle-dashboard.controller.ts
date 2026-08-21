@@ -21,6 +21,7 @@ import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { sendBinaryFile, type BinaryFileResponse } from "../../common/http/send-binary-file";
 import type { AuthenticatedUser, UserRole } from "../../common/types/authenticated-user.type";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
+import type { Prisma } from "../../generated/prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import {
   buildNestleOverviewPdf,
@@ -28,6 +29,14 @@ import {
 } from "./nestle-export.util";
 
 const VIEWER_ROLES = new Set<UserRole>(["admin", "supervisor", "client"]);
+
+const outletWhereForPromoterRegion = (regionId?: string): Prisma.OutletWhereInput => {
+  const trimmed = regionId?.trim();
+  if (trimmed === undefined || trimmed.length === 0) {
+    return {};
+  }
+  return { createdBy: { is: { regionId: trimmed } } };
+};
 
 @Controller("admin/nestle")
 @ApiTags("Admin Nestlé dashboard")
@@ -74,8 +83,9 @@ export class NestleDashboardController {
         : {})
     };
     const vendorWhere = {
-      ...(params.regionId !== undefined && params.regionId.trim().length > 0
-        ? { regionId: params.regionId.trim() }
+      ...outletWhereForPromoterRegion(params.regionId),
+      ...(params.userId !== undefined && params.userId.trim().length > 0
+        ? { createdByUserId: params.userId.trim() }
         : {}),
       ...(fromDate !== undefined || toDate !== undefined
         ? {
@@ -103,7 +113,18 @@ export class NestleDashboardController {
       regional
     ] = await Promise.all([
       this.prisma.outlet.count({ where: { isActive: true, ...vendorWhere } }),
-      this.prisma.user.count({ where: { role: "promoter", isActive: true } }),
+      this.prisma.user.count({
+        where: {
+          role: "promoter",
+          isActive: true,
+          ...(params.regionId !== undefined && params.regionId.trim().length > 0
+            ? { regionId: params.regionId.trim() }
+            : {}),
+          ...(params.userId !== undefined && params.userId.trim().length > 0
+            ? { id: params.userId.trim() }
+            : {})
+        }
+      }),
       this.prisma.outletVisit.count({
         where: { checkedInAt: { gte: startOfToday }, ...visitWhere }
       }),
@@ -136,13 +157,34 @@ export class NestleDashboardController {
       this.prisma.outletVisit.count({ where: { ...visitWhere, isComplete: false } }),
       this.prisma.opsAlert.count({ where: { isRead: false } }),
       this.prisma.outlet.groupBy({
-        by: ["regionId"],
-        where: { isActive: true },
+        by: ["createdByUserId"],
+        where: { isActive: true, ...vendorWhere },
         _count: { _all: true }
       })
     ]);
 
-    const regionIds = regional.map((r) => r.regionId).filter((id): id is string => id !== null);
+    const promoterIds = regional
+      .map((row) => row.createdByUserId)
+      .filter((id): id is string => id !== null);
+    const promoters = await this.prisma.user.findMany({
+      where: { id: { in: promoterIds } },
+      select: { id: true, regionId: true }
+    });
+    const promoterRegionById = new Map(promoters.map((user) => [user.id, user.regionId]));
+    const vendorCountByPromoterRegion = new Map<string | null, number>();
+    for (const row of regional) {
+      const regionKey =
+        row.createdByUserId === null
+          ? null
+          : (promoterRegionById.get(row.createdByUserId) ?? null);
+      vendorCountByPromoterRegion.set(
+        regionKey,
+        (vendorCountByPromoterRegion.get(regionKey) ?? 0) + row._count._all
+      );
+    }
+    const regionIds = [...vendorCountByPromoterRegion.keys()].filter(
+      (id): id is string => id !== null
+    );
     const regions = await this.prisma.region.findMany({
       where: { id: { in: regionIds } },
       select: { id: true, name: true }
@@ -163,10 +205,11 @@ export class NestleDashboardController {
       },
       incompleteVisits,
       unreadAlerts,
-      regionalPerformance: regional.map((r) => ({
-        regionId: r.regionId,
-        regionName: r.regionId !== null ? (regionNameById.get(r.regionId) ?? "Unknown") : "Unassigned",
-        vendorCount: r._count._all
+      regionalPerformance: [...vendorCountByPromoterRegion.entries()].map(([regionId, vendorCount]) => ({
+        regionId,
+        regionName:
+          regionId !== null ? (regionNameById.get(regionId) ?? "Unknown") : "Unassigned",
+        vendorCount
       }))
     };
   }
@@ -319,7 +362,8 @@ export class NestleDashboardController {
     if (exportKind === "vendors") {
       const vendors = await this.prisma.outlet.findMany({
         where: {
-          ...(regionFilter !== undefined ? { regionId: regionFilter } : {}),
+          ...outletWhereForPromoterRegion(regionFilter),
+          ...(userFilter !== undefined ? { createdByUserId: userFilter } : {}),
           ...(fromDate !== undefined || toDate !== undefined
             ? {
                 createdAt: {
@@ -331,10 +375,12 @@ export class NestleDashboardController {
         },
         orderBy: { createdAt: "desc" },
         take: 5000,
-        include: { region: { select: { name: true } } }
+        include: {
+          createdBy: { select: { fullName: true, region: { select: { name: true } } } }
+        }
       });
       const header =
-        "vendorId,id,businessName,vendorName,phone,phoneSecondary,role,gender,ageBracket,employees,avgSalesDayGhs,landmark,region,district,community,vendorType,yearsInBusiness,latitude,longitude,createdAt";
+        "vendorId,id,businessName,vendorName,phone,phoneSecondary,role,gender,ageBracket,employees,avgSalesDayGhs,landmark,region,district,community,vendorType,yearsInBusiness,latitude,longitude,createdAt,promoter";
       const rows = vendors.map((v) =>
         [
           csv(v.vendorCode),
@@ -349,14 +395,15 @@ export class NestleDashboardController {
           csv(v.employeeCountBracket),
           csv(v.averageDailySalesBracket),
           csv(v.landmark),
-          csv(v.region?.name),
+          csv(v.createdBy?.region?.name),
           csv(v.district),
           csv(v.locationArea),
           csv(v.category),
           v.yearsInBusiness ?? "",
           v.latitude ?? "",
           v.longitude ?? "",
-          v.createdAt.toISOString()
+          v.createdAt.toISOString(),
+          csv(v.createdBy?.fullName)
         ].join(",")
       );
       sendBinaryFile(
