@@ -177,11 +177,11 @@ export default function OpsOverviewPage(): ReactElement {
       workbook,
       XLSX.utils.json_to_sheet(
         data.regionalPerformance.map((r) => ({
-          region: r.regionName,
+          promoterRegion: r.regionName,
           vendors: r.vendorCount
         }))
       ),
-      "Vendor distribution"
+      "Promoter regions"
     );
     const now = new Date().toISOString().slice(0, 10);
     XLSX.writeFile(workbook, `nestle-overview-pack-${now}.xlsx`);
