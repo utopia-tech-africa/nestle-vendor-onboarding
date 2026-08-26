@@ -4,6 +4,7 @@ import {
   BarChart3,
   ClipboardCheck,
   Download,
+  Gift,
   History,
   Home,
   Map,
@@ -27,7 +28,7 @@ import { cn } from "@/lib/utils";
 export type FieldNavItem = {
   href: string;
   label: string;
-  segment: "home" | "programme" | "vendors" | "visits" | "map" | "attendance" | "check-in" | "outlets" | "history";
+  segment: "home" | "programme" | "vendors" | "visits" | "map" | "attendance" | "check-in" | "outlets" | "history" | "items";
   Icon: LucideIcon;
 };
 
@@ -36,6 +37,7 @@ export const fieldNavItemsPromoter: readonly FieldNavItem[] = [
   { href: "/dashboard", label: "Home", segment: "home", Icon: Home },
   { href: "/dashboard/check-in", label: "Check-in", segment: "check-in", Icon: MapPin },
   { href: "/dashboard/outlet-visits", label: "Vendors", segment: "outlets", Icon: Store },
+  { href: "/dashboard/items", label: "Items", segment: "items", Icon: Gift },
   { href: "/dashboard/history", label: "Route history", segment: "history", Icon: History }
 ] as const;
 
@@ -44,6 +46,7 @@ export const fieldNavItemsClient: readonly FieldNavItem[] = [
   { href: "/dashboard", label: "Home", segment: "home", Icon: Home },
   { href: "/dashboard/programme", label: "Programme", segment: "programme", Icon: BarChart3 },
   { href: "/dashboard/vendors", label: "Vendors", segment: "vendors", Icon: Store },
+  { href: "/dashboard/items", label: "Items given", segment: "items", Icon: Gift },
   { href: "/dashboard/visits", label: "Visits", segment: "visits", Icon: ClipboardCheck },
   { href: "/dashboard/visits-map", label: "Map", segment: "map", Icon: Map },
   {

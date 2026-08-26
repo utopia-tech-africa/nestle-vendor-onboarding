@@ -118,6 +118,20 @@ const outletSelect = {
   }
 } satisfies Prisma.OutletSelect;
 
+const distributionOutletSelect = {
+  id: true,
+  vendorCode: true,
+  name: true,
+  vendorTypeGroup: true,
+  category: true,
+  locationArea: true,
+  district: true,
+  contactName: true,
+  contactPhone: true,
+  contactPhoneSecondary: true,
+  isActive: true
+} satisfies Prisma.OutletSelect;
+
 type OutletWriteData = {
   name: string;
   vendorTypeGroup?: string | null;
@@ -536,5 +550,96 @@ export class OutletRepository {
     ]);
 
     return { items, total };
+  }
+
+  public findByVendorCodeCandidates(codes: string[]) {
+    if (codes.length === 0) {
+      return Promise.resolve(null);
+    }
+    return this.prisma.outlet.findFirst({
+      where: {
+        OR: codes.map((code) => ({ vendorCode: { equals: code, mode: "insensitive" } }))
+      },
+      select: distributionOutletSelect
+    });
+  }
+
+  public findDistributionOutletById(id: string) {
+    return this.prisma.outlet.findUnique({
+      where: { id },
+      select: distributionOutletSelect
+    });
+  }
+
+  public async findByPhoneNeedle(needle: string) {
+    if (!/^\d{7,15}$/.test(needle)) {
+      return [];
+    }
+    const like = `%${needle}%`;
+    const rows = await this.prisma.$queryRaw<{ id: string }[]>`
+      SELECT id FROM "Outlet"
+      WHERE (
+        "contactPhone" IS NOT NULL
+        AND regexp_replace("contactPhone", '[^0-9]', '', 'g') LIKE ${like}
+      ) OR (
+        "contactPhoneSecondary" IS NOT NULL
+        AND regexp_replace("contactPhoneSecondary", '[^0-9]', '', 'g') LIKE ${like}
+      )
+      LIMIT 25
+    `;
+    if (rows.length === 0) {
+      return [];
+    }
+    return this.prisma.outlet.findMany({
+      where: { id: { in: rows.map((row) => row.id) } },
+      select: distributionOutletSelect,
+      orderBy: { name: "asc" }
+    });
+  }
+
+  public listIssuancesForOutlet(outletId: string) {
+    return this.prisma.outletItemIssuance.findMany({
+      where: { outletId },
+      orderBy: { issuedAt: "desc" },
+      select: {
+        id: true,
+        itemId: true,
+        issuedAt: true,
+        notes: true,
+        issuedBy: { select: { id: true, fullName: true } }
+      }
+    });
+  }
+
+  public createItemIssuance(data: {
+    outletId: string;
+    itemId: string;
+    issuedByUserId: string;
+    notes: string | null;
+  }) {
+    return this.prisma.outletItemIssuance.create({
+      data,
+      select: {
+        id: true,
+        itemId: true,
+        issuedAt: true,
+        notes: true,
+        issuedBy: { select: { id: true, fullName: true } }
+      }
+    });
+  }
+
+  public deleteItemIssuance(outletId: string, itemId: string) {
+    return this.prisma.outletItemIssuance.delete({
+      where: { outletId_itemId: { outletId, itemId } },
+      select: { id: true }
+    });
+  }
+
+  public findItemIssuance(outletId: string, itemId: string) {
+    return this.prisma.outletItemIssuance.findUnique({
+      where: { outletId_itemId: { outletId, itemId } },
+      select: { id: true }
+    });
   }
 }

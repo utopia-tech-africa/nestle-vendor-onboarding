@@ -58,6 +58,15 @@ const vendorTypeSelect = {
   }
 } satisfies Prisma.CatalogVendorTypeSelect;
 
+const distributionItemSelect = {
+  id: true,
+  name: true,
+  sortOrder: true,
+  isActive: true,
+  createdAt: true,
+  updatedAt: true
+} satisfies Prisma.CatalogDistributionItemSelect;
+
 @Injectable()
 export class CatalogRepository {
   public constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
@@ -240,6 +249,40 @@ export class CatalogRepository {
     return this.prisma.catalogVendorTypeValue.findUnique({
       where: { id },
       select: vendorTypeValueSelect
+    });
+  }
+
+  public listDistributionItems(activeOnly: boolean) {
+    return this.prisma.catalogDistributionItem.findMany({
+      where: activeOnly ? { isActive: true } : {},
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+      select: distributionItemSelect
+    });
+  }
+
+  public createDistributionItem(data: { name: string; sortOrder: number; isActive: boolean }) {
+    return this.prisma.catalogDistributionItem.create({ data, select: distributionItemSelect });
+  }
+
+  public updateDistributionItem(
+    id: string,
+    data: Partial<{ name: string; sortOrder: number; isActive: boolean }>
+  ) {
+    return this.prisma.catalogDistributionItem.update({
+      where: { id },
+      data,
+      select: distributionItemSelect
+    });
+  }
+
+  public deleteDistributionItem(id: string) {
+    return this.prisma.catalogDistributionItem.delete({ where: { id }, select: { id: true } });
+  }
+
+  public findDistributionItem(id: string) {
+    return this.prisma.catalogDistributionItem.findUnique({
+      where: { id },
+      select: distributionItemSelect
     });
   }
 }

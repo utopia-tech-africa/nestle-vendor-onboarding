@@ -505,6 +505,124 @@ export const deleteVendorTypeValue = async (token: string, id: string): Promise<
     token
   });
 
+export type DistributionItemRecord = CatalogItemRecord;
+
+export type VendorItemStatus = {
+  id: string;
+  name: string;
+  given: boolean;
+  issuedAt: string | null;
+  issuedByName: string | null;
+  notes: string | null;
+};
+
+export type VendorItemLookup = {
+  outlet: {
+    id: string;
+    vendorCode: string;
+    name: string;
+    vendorTypeGroup: string | null;
+    category: string;
+    locationArea: string;
+    district: string | null;
+    contactName: string | null;
+    contactPhone: string | null;
+    contactPhoneSecondary: string | null;
+    isActive: boolean;
+  };
+  givenCount: number;
+  itemCount: number;
+  items: VendorItemStatus[];
+};
+
+export type VendorItemMatch = {
+  id: string;
+  vendorCode: string;
+  name: string;
+  locationArea: string;
+  district: string | null;
+  contactPhone: string | null;
+  contactPhoneSecondary: string | null;
+};
+
+export type VendorItemLookupQueryResult = {
+  result: VendorItemLookup | null;
+  matches: VendorItemMatch[];
+};
+
+export const listDistributionItems = async (
+  token: string,
+  includeInactive = false
+): Promise<DistributionItemRecord[]> => {
+  const query = includeInactive ? "?includeInactive=true" : "";
+  return apiRequest<DistributionItemRecord[]>(`/distribution/items${query}`, { token });
+};
+
+export const createDistributionItem = async (
+  token: string,
+  payload: CatalogItemPayload
+): Promise<DistributionItemRecord> =>
+  apiRequest<DistributionItemRecord>("/distribution/items", {
+    method: "POST",
+    token,
+    body: payload
+  });
+
+export const updateDistributionItem = async (
+  token: string,
+  id: string,
+  payload: Partial<CatalogItemPayload>
+): Promise<DistributionItemRecord> =>
+  apiRequest<DistributionItemRecord>(`/distribution/items/${id}`, {
+    method: "PATCH",
+    token,
+    body: payload
+  });
+
+export const deleteDistributionItem = async (
+  token: string,
+  id: string
+): Promise<{ ok: boolean }> =>
+  apiRequest<{ ok: boolean }>(`/distribution/items/${id}`, { method: "DELETE", token });
+
+export const lookupVendorItems = async (
+  token: string,
+  query: string
+): Promise<VendorItemLookupQueryResult> => {
+  const params = new URLSearchParams({ q: query.trim() });
+  return apiRequest<VendorItemLookupQueryResult>(`/distribution/vendors?${params.toString()}`, {
+    token
+  });
+};
+
+export const getVendorItemsByOutletId = async (
+  token: string,
+  outletId: string
+): Promise<VendorItemLookup> =>
+  apiRequest<VendorItemLookup>(`/distribution/outlets/${outletId}`, { token });
+
+export const markVendorItemGiven = async (
+  token: string,
+  outletId: string,
+  itemId: string,
+  notes?: string
+): Promise<VendorItemLookup> =>
+  apiRequest<VendorItemLookup>(`/distribution/outlets/${outletId}/items/${itemId}`, {
+    method: "POST",
+    token,
+    body: notes !== undefined && notes.trim().length > 0 ? { notes: notes.trim() } : {}
+  });
+
+export const revokeVendorItemGiven = async (
+  token: string,
+  outletId: string,
+  itemId: string
+): Promise<VendorItemLookup> =>
+  apiRequest<VendorItemLookup>(`/distribution/outlets/${outletId}/items/${itemId}`, {
+    method: "DELETE",
+    token
+  });
+
 export const createFieldOutlet = async (
   token: string,
   payload: CreateFieldOutletPayload

@@ -118,6 +118,7 @@ model User {
   outletVisits OutletVisit[]
   onboardedOutlets Outlet[] @relation("OutletCreatedBy")
   workAreas    Geofence[]    @relation("PromoterWorkAreas")
+  itemIssuances OutletItemIssuance[] @relation("OutletItemIssuedBy")
 
   @@index([regionId])
 }
@@ -254,6 +255,7 @@ model Outlet {
   createdBy        User?    @relation("OutletCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
   visits           OutletVisit[]
   onboardingPhotos OutletOnboardingPhoto[]
+  itemIssuances    OutletItemIssuance[]
 
   @@index([regionId])
   @@index([createdByUserId])
@@ -495,4 +497,33 @@ model CatalogVendorTypeValue {
 
   @@unique([typeId, name])
   @@index([typeId, sortOrder])
+}
+
+/// Item handed to vendors (e.g. umbrella, table, poster pack), managed by Ops.
+model CatalogDistributionItem {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  issuances OutletItemIssuance[]
+}
+
+/// Record that a vendor received a distribution item.
+model OutletItemIssuance {
+  id             String                   @id @default(cuid())
+  outletId       String
+  itemId         String
+  issuedAt       DateTime                 @default(now())
+  issuedByUserId String
+  notes          String?
+  outlet         Outlet                   @relation(fields: [outletId], references: [id], onDelete: Cascade)
+  item           CatalogDistributionItem  @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  issuedBy       User                     @relation("OutletItemIssuedBy", fields: [issuedByUserId], references: [id], onDelete: Restrict)
+
+  @@unique([outletId, itemId])
+  @@index([outletId])
+  @@index([itemId])
+  @@index([issuedByUserId])
 }

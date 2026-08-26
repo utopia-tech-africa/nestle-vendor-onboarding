@@ -374,4 +374,61 @@ export class CatalogService {
     await this.catalogRepository.deleteVendorTypeValue(id);
     return { ok: true as const };
   }
+
+  public listDistributionItems(activeOnly: boolean) {
+    return this.catalogRepository.listDistributionItems(activeOnly);
+  }
+
+  public async createDistributionItem(currentUser: AuthenticatedUser, dto: CreateCatalogItemDto) {
+    this.requireManager(currentUser);
+    try {
+      return await this.catalogRepository.createDistributionItem({
+        name: dto.name.trim(),
+        sortOrder: dto.sortOrder ?? 0,
+        isActive: dto.isActive ?? true
+      });
+    } catch (error: unknown) {
+      if (CatalogService.isUniqueViolation(error)) {
+        throw new ConflictException("An item with this name already exists");
+      }
+      throw error;
+    }
+  }
+
+  public async updateDistributionItem(
+    currentUser: AuthenticatedUser,
+    id: string,
+    dto: UpdateCatalogItemDto
+  ) {
+    this.requireManager(currentUser);
+    if (Object.keys(dto).length === 0) {
+      throw new BadRequestException("At least one field must be provided");
+    }
+    const existing = await this.catalogRepository.findDistributionItem(id);
+    if (existing === null) {
+      throw new NotFoundException("Distribution item not found");
+    }
+    try {
+      return await this.catalogRepository.updateDistributionItem(id, {
+        ...(dto.name !== undefined ? { name: dto.name.trim() } : {}),
+        ...(dto.sortOrder !== undefined ? { sortOrder: dto.sortOrder } : {}),
+        ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {})
+      });
+    } catch (error: unknown) {
+      if (CatalogService.isUniqueViolation(error)) {
+        throw new ConflictException("An item with this name already exists");
+      }
+      throw error;
+    }
+  }
+
+  public async deleteDistributionItem(currentUser: AuthenticatedUser, id: string) {
+    this.requireManager(currentUser);
+    const existing = await this.catalogRepository.findDistributionItem(id);
+    if (existing === null) {
+      throw new NotFoundException("Distribution item not found");
+    }
+    await this.catalogRepository.deleteDistributionItem(id);
+    return { ok: true as const };
+  }
 }

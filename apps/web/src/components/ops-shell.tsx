@@ -33,6 +33,7 @@ const navGroupsForRole = (role: AuthUser["role"]): NavGroup[] => {
   const fieldItems: NavItem[] = [
     { href: "/ops/geofences", label: "Work areas" },
     { href: "/ops/outlets", label: "Vendors" },
+    { href: "/ops/items", label: "Items given" },
     { href: "/ops/outlets/visits", label: "Vendor visits" }
   ];
   if (canSupervise) {

@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -24,10 +25,17 @@ import type { CreateOutletDto } from "./dto/create-outlet.dto";
 import type { UpdateOutletDto } from "./dto/update-outlet.dto";
 import { CatalogService } from "./catalog.service";
 import { OutletRepository } from "./outlet.repository";
+import {
+  looksLikeVendorCodeQuery,
+  phoneLookupNeedle,
+  vendorCodeLookupCandidates
+} from "./vendor-code-query";
 
 const OUTLET_MANAGER_ROLES = new Set<UserRole>(["admin", "supervisor"]);
 const OUTLET_VIEWER_ROLES = new Set<UserRole>(["admin", "supervisor", "client"]);
 const FIELD_OUTLET_ROLES = new Set<UserRole>(["promoter"]);
+const DISTRIBUTION_VIEWER_ROLES = new Set<UserRole>(["admin", "supervisor", "client", "promoter"]);
+const DISTRIBUTION_RECORDER_ROLES = new Set<UserRole>(["admin", "supervisor", "promoter"]);
 
 const hidePersonalContact = (role: UserRole): boolean => role === "client";
 
@@ -568,5 +576,199 @@ export class OutletService {
         user: visit.user == null ? visit.user : { ...visit.user, phone: "" }
       }))
     };
+  }
+
+  private assertDistributionViewer(currentUser: AuthenticatedUser): void {
+    if (!DISTRIBUTION_VIEWER_ROLES.has(currentUser.role)) {
+      throw new ForbiddenException("You cannot look up vendor item records");
+    }
+  }
+
+  private assertDistributionRecorder(currentUser: AuthenticatedUser): void {
+    if (!DISTRIBUTION_RECORDER_ROLES.has(currentUser.role)) {
+      throw new ForbiddenException("You cannot record items given to vendors");
+    }
+  }
+
+  public async lookupVendorItems(currentUser: AuthenticatedUser, query: string) {
+    this.assertDistributionViewer(currentUser);
+    const trimmed = query.trim();
+    if (trimmed.length === 0) {
+      throw new BadRequestException("Enter a phone number (for example 0244123456)");
+    }
+
+    const needle = phoneLookupNeedle(trimmed);
+    let outlets =
+      needle === null ? [] : await this.outletRepository.findByPhoneNeedle(needle);
+
+    if (outlets.length === 0 && looksLikeVendorCodeQuery(trimmed)) {
+      const byCode = await this.outletRepository.findByVendorCodeCandidates(
+        vendorCodeLookupCandidates(trimmed)
+      );
+      if (byCode !== null) {
+        outlets = [byCode];
+      }
+    }
+
+    if (outlets.length === 0) {
+      if (needle === null) {
+        throw new BadRequestException("Enter a phone number (for example 0244123456)");
+      }
+      throw new NotFoundException("No vendor found with that phone number");
+    }
+
+    if (outlets.length === 1) {
+      const first = outlets[0];
+      if (first === undefined) {
+        throw new NotFoundException("No vendor found with that phone number");
+      }
+      const result = await this.toVendorItemLookup(currentUser, first);
+      return { result, matches: [this.toVendorItemMatch(result.outlet)] };
+    }
+
+    return {
+      result: null,
+      matches: outlets.map((outlet) => this.toVendorItemMatch(outlet))
+    };
+  }
+
+  public async lookupVendorItemsByOutletId(currentUser: AuthenticatedUser, outletId: string) {
+    this.assertDistributionViewer(currentUser);
+    const outlet = await this.outletRepository.findDistributionOutletById(outletId);
+    if (outlet === null) {
+      throw new NotFoundException("Vendor not found");
+    }
+    return this.toVendorItemLookup(currentUser, outlet);
+  }
+
+  private toVendorItemMatch(outlet: {
+    id: string;
+    vendorCode: string;
+    name: string;
+    locationArea: string;
+    district: string | null;
+    contactPhone: string | null;
+    contactPhoneSecondary?: string | null;
+  }) {
+    return {
+      id: outlet.id,
+      vendorCode: outlet.vendorCode,
+      name: outlet.name,
+      locationArea: outlet.locationArea,
+      district: outlet.district,
+      contactPhone: outlet.contactPhone,
+      contactPhoneSecondary: outlet.contactPhoneSecondary ?? null
+    };
+  }
+
+  private async toVendorItemLookup(
+    currentUser: AuthenticatedUser,
+    outlet: {
+      id: string;
+      vendorCode: string;
+      name: string;
+      vendorTypeGroup: string | null;
+      category: string;
+      locationArea: string;
+      district: string | null;
+      contactName: string | null;
+      contactPhone: string | null;
+      contactPhoneSecondary: string | null;
+      isActive: boolean;
+    }
+  ) {
+    const [catalogItems, issuances] = await Promise.all([
+      this.catalogService.listDistributionItems(false),
+      this.outletRepository.listIssuancesForOutlet(outlet.id)
+    ]);
+    const issuanceByItemId = new Map(issuances.map((row) => [row.itemId, row]));
+    const items = catalogItems
+      .filter((item) => item.isActive || issuanceByItemId.has(item.id))
+      .map((item) => {
+        const issuance = issuanceByItemId.get(item.id);
+        return {
+          id: item.id,
+          name: item.name,
+          given: issuance !== undefined,
+          issuedAt: issuance?.issuedAt.toISOString() ?? null,
+          issuedByName: issuance?.issuedBy.fullName ?? null,
+          notes: issuance?.notes ?? null
+        };
+      });
+    const givenCount = items.filter((item) => item.given).length;
+    const redactContact = hidePersonalContact(currentUser.role);
+    return {
+      outlet: {
+        id: outlet.id,
+        vendorCode: outlet.vendorCode,
+        name: outlet.name,
+        vendorTypeGroup: outlet.vendorTypeGroup,
+        category: outlet.category,
+        locationArea: outlet.locationArea,
+        district: outlet.district,
+        contactName: redactContact ? null : outlet.contactName,
+        contactPhone: outlet.contactPhone,
+        contactPhoneSecondary: redactContact ? null : outlet.contactPhoneSecondary,
+        isActive: outlet.isActive
+      },
+      givenCount,
+      itemCount: items.length,
+      items
+    };
+  }
+
+  public async markItemGiven(
+    currentUser: AuthenticatedUser,
+    outletId: string,
+    itemId: string,
+    notes?: string
+  ) {
+    this.assertDistributionRecorder(currentUser);
+    const outlet = await this.outletRepository.findById(outletId);
+    if (outlet === null) {
+      throw new NotFoundException("Vendor not found");
+    }
+    const item = await this.catalogService.listDistributionItems(false).then((rows) =>
+      rows.find((row) => row.id === itemId)
+    );
+    if (item === undefined) {
+      throw new NotFoundException("Item not found");
+    }
+    if (!item.isActive) {
+      throw new BadRequestException("This item is no longer active");
+    }
+    const existing = await this.outletRepository.findItemIssuance(outletId, itemId);
+    if (existing !== null) {
+      throw new ConflictException("This vendor has already been given that item");
+    }
+    const trimmedNotes = notes?.trim() ?? "";
+    await this.outletRepository.createItemIssuance({
+      outletId,
+      itemId,
+      issuedByUserId: currentUser.id,
+      notes: trimmedNotes.length > 0 ? trimmedNotes : null
+    });
+    return this.lookupVendorItemsByOutletId(currentUser, outlet.id);
+  }
+
+  public async revokeItemGiven(currentUser: AuthenticatedUser, outletId: string, itemId: string) {
+    this.assertDistributionRecorder(currentUser);
+    const outlet = await this.outletRepository.findById(outletId);
+    if (outlet === null) {
+      throw new NotFoundException("Vendor not found");
+    }
+    const existing = await this.outletRepository.findItemIssuance(outletId, itemId);
+    if (existing === null) {
+      throw new NotFoundException("This vendor has not been given that item");
+    }
+    await this.outletRepository.deleteItemIssuance(outletId, itemId);
+    return this.lookupVendorItemsByOutletId(currentUser, outlet.id);
+  }
+
+  public async listDistributionItemsForViewer(currentUser: AuthenticatedUser, includeInactive: boolean) {
+    this.assertDistributionViewer(currentUser);
+    const activeOnly =
+      !includeInactive || currentUser.role === "client" || currentUser.role === "promoter";
+    return this.catalogService.listDistributionItems(activeOnly);
   }
 }
