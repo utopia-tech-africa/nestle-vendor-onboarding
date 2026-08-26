@@ -3,7 +3,6 @@ import { Type } from "class-transformer";
 import {
   IsArray,
   IsEmail,
-  IsIn,
   IsInt,
   IsLatitude,
   IsLongitude,
@@ -17,7 +16,6 @@ import {
 } from "class-validator";
 
 import { OutletVisitPhotoInputDto } from "../../me/dto/create-outlet-visit.dto";
-import { VENDOR_TYPE_VALUES } from "../field-catalogs";
 import { OutletProfileExtrasDto } from "./outlet-profile-extras.dto";
 
 export class CreateFieldOutletDto extends OutletProfileExtrasDto {
@@ -27,9 +25,16 @@ export class CreateFieldOutletDto extends OutletProfileExtrasDto {
   @MaxLength(120)
   public name!: string;
 
-  @ApiProperty({ type: String, example: "Koko seller", description: "Vendor type", enum: VENDOR_TYPE_VALUES })
+  @ApiProperty({ type: String, example: "Table top", description: "Parent vendor type from the catalog" })
   @IsString()
-  @IsIn(VENDOR_TYPE_VALUES)
+  @MinLength(1)
+  @MaxLength(120)
+  public vendorTypeGroup!: string;
+
+  @ApiProperty({ type: String, example: "Koko seller", description: "Seller type (value under the vendor type)" })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(120)
   public category!: string;
 
   @ApiPropertyOptional({ type: String, example: "N/A", default: "N/A" })

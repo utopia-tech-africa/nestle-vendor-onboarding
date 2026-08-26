@@ -5,13 +5,14 @@ export type CatalogOption = {
 
 const option = (value: string, label = value): CatalogOption => ({ value, label });
 
-export const VENDOR_TYPES: CatalogOption[] = [
-  option("Koko seller"),
-  option("Market stall"),
-  option("Corner shop"),
-  option("Street vendor"),
-  option("Other")
-];
+export const VENDOR_TYPES: CatalogOption[] = [option("Table top")];
+
+export const VENDOR_TYPE_VALUES_BY_TYPE: Record<string, CatalogOption[]> = {
+  "Table top": [option("Koko seller"), option("Oats seller"), option("Other")]
+};
+
+export const VENDOR_TYPE_QUESTION_PROMPT = "Vendor type";
+export const SELLER_TYPE_QUESTION_PROMPT = "Seller type";
 
 export const VENDOR_ROLE_VALUES = ["owner", "worker"] as const;
 export const GENDER_VALUES = ["male", "female", "other"] as const;
@@ -131,8 +132,46 @@ export const PEAK_PERIODS: CatalogOption[] = [
 
 export const VENDOR_TYPE_VALUES = VENDOR_TYPES.map((item) => item.value);
 
+export const sellerTypeValues = (byType: Record<string, CatalogOption[]>): CatalogOption[] => {
+  const seen = new Set<string>();
+  const result: CatalogOption[] = [];
+  for (const items of Object.values(byType)) {
+    for (const item of items) {
+      if (seen.has(item.value)) {
+        continue;
+      }
+      seen.add(item.value);
+      result.push(item);
+    }
+  }
+  return result;
+};
+
+export const vendorTypeDisplayLabel = (outlet: {
+  vendorTypeGroup?: string | null;
+  category: string;
+}): string => {
+  const group = outlet.vendorTypeGroup?.trim() ?? "";
+  if (group.length === 0) {
+    return outlet.category;
+  }
+  return `${group} · ${outlet.category}`;
+};
+
+export const vendorTypeExportLabel = (outlet: {
+  vendorTypeGroup?: string | null;
+  category: string;
+}): string => {
+  const group = outlet.vendorTypeGroup?.trim() ?? "";
+  if (group.length === 0) {
+    return outlet.category;
+  }
+  return `${group} — ${outlet.category}`;
+};
+
 export type FieldCatalogs = {
   vendorTypes: CatalogOption[];
+  vendorTypeValuesByType: Record<string, CatalogOption[]>;
   vendorRoles: CatalogOption[];
   genders: CatalogOption[];
   ageBrackets: CatalogOption[];
@@ -146,6 +185,7 @@ export type FieldCatalogs = {
 
 export const getFieldCatalogs = (): FieldCatalogs => ({
   vendorTypes: VENDOR_TYPES,
+  vendorTypeValuesByType: VENDOR_TYPE_VALUES_BY_TYPE,
   vendorRoles: VENDOR_ROLES,
   genders: GENDERS,
   ageBrackets: AGE_BRACKETS,

@@ -14,6 +14,8 @@ import {
   COMPETITOR_BRANDS,
   COMPETITOR_PRODUCTS_BY_BRAND,
   NESTLE_PRODUCTS,
+  VENDOR_TYPES,
+  VENDOR_TYPE_VALUES_BY_TYPE,
   getFieldCatalogs,
   type CatalogOption,
   type FieldCatalogs
@@ -45,9 +47,10 @@ export class CatalogService {
 
   public async getFieldCatalogs(): Promise<FieldCatalogs> {
     const staticCatalogs = getFieldCatalogs();
-    const [nestleRows, brandRows] = await Promise.all([
+    const [nestleRows, brandRows, vendorTypeRows] = await Promise.all([
       this.catalogRepository.listNestleProducts(true),
-      this.catalogRepository.listCompetitorBrands(true)
+      this.catalogRepository.listCompetitorBrands(true),
+      this.catalogRepository.listVendorTypes(true)
     ]);
 
     const nestleProducts =
@@ -60,22 +63,33 @@ export class CatalogService {
             brandRows.map((brand) => [brand.name, brand.products.map((product) => option(product.name))])
           )
         : COMPETITOR_PRODUCTS_BY_BRAND;
+    const vendorTypes =
+      vendorTypeRows.length > 0 ? vendorTypeRows.map((row) => option(row.name)) : VENDOR_TYPES;
+    const vendorTypeValuesByType: Record<string, CatalogOption[]> =
+      vendorTypeRows.length > 0
+        ? Object.fromEntries(
+            vendorTypeRows.map((type) => [type.name, type.values.map((value) => option(value.name))])
+          )
+        : VENDOR_TYPE_VALUES_BY_TYPE;
 
     return {
       ...staticCatalogs,
       nestleProducts,
       competitorBrands,
-      competitorProductsByBrand
+      competitorProductsByBrand,
+      vendorTypes,
+      vendorTypeValuesByType
     };
   }
 
   public async listForAdmin(currentUser: AuthenticatedUser) {
     this.requireManager(currentUser);
-    const [nestleProducts, competitorBrands] = await Promise.all([
+    const [nestleProducts, competitorBrands, vendorTypes] = await Promise.all([
       this.catalogRepository.listNestleProducts(false),
-      this.catalogRepository.listCompetitorBrands(false)
+      this.catalogRepository.listCompetitorBrands(false),
+      this.catalogRepository.listVendorTypes(false)
     ]);
-    return { nestleProducts, competitorBrands };
+    return { nestleProducts, competitorBrands, vendorTypes };
   }
 
   public async createNestleProduct(currentUser: AuthenticatedUser, dto: CreateCatalogItemDto) {
@@ -243,6 +257,121 @@ export class CatalogService {
       throw new NotFoundException("Competitor product not found");
     }
     await this.catalogRepository.deleteCompetitorProduct(id);
+    return { ok: true as const };
+  }
+
+  public async createVendorType(currentUser: AuthenticatedUser, dto: CreateCatalogItemDto) {
+    this.requireManager(currentUser);
+    try {
+      return await this.catalogRepository.createVendorType({
+        name: dto.name.trim(),
+        sortOrder: dto.sortOrder ?? 0,
+        isActive: dto.isActive ?? true
+      });
+    } catch (error: unknown) {
+      if (CatalogService.isUniqueViolation(error)) {
+        throw new ConflictException("A vendor type with this name already exists");
+      }
+      throw error;
+    }
+  }
+
+  public async updateVendorType(
+    currentUser: AuthenticatedUser,
+    id: string,
+    dto: UpdateCatalogItemDto
+  ) {
+    this.requireManager(currentUser);
+    if (Object.keys(dto).length === 0) {
+      throw new BadRequestException("At least one field must be provided");
+    }
+    const existing = await this.catalogRepository.findVendorType(id);
+    if (existing === null) {
+      throw new NotFoundException("Vendor type not found");
+    }
+    try {
+      return await this.catalogRepository.updateVendorType(id, {
+        ...(dto.name !== undefined ? { name: dto.name.trim() } : {}),
+        ...(dto.sortOrder !== undefined ? { sortOrder: dto.sortOrder } : {}),
+        ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {})
+      });
+    } catch (error: unknown) {
+      if (CatalogService.isUniqueViolation(error)) {
+        throw new ConflictException("A vendor type with this name already exists");
+      }
+      throw error;
+    }
+  }
+
+  public async deleteVendorType(currentUser: AuthenticatedUser, id: string) {
+    this.requireManager(currentUser);
+    const existing = await this.catalogRepository.findVendorType(id);
+    if (existing === null) {
+      throw new NotFoundException("Vendor type not found");
+    }
+    await this.catalogRepository.deleteVendorType(id);
+    return { ok: true as const };
+  }
+
+  public async createVendorTypeValue(
+    currentUser: AuthenticatedUser,
+    typeId: string,
+    dto: CreateCatalogItemDto
+  ) {
+    this.requireManager(currentUser);
+    const type = await this.catalogRepository.findVendorType(typeId);
+    if (type === null) {
+      throw new NotFoundException("Vendor type not found");
+    }
+    try {
+      return await this.catalogRepository.createVendorTypeValue({
+        typeId,
+        name: dto.name.trim(),
+        sortOrder: dto.sortOrder ?? 0,
+        isActive: dto.isActive ?? true
+      });
+    } catch (error: unknown) {
+      if (CatalogService.isUniqueViolation(error)) {
+        throw new ConflictException("This vendor type already has a value with that name");
+      }
+      throw error;
+    }
+  }
+
+  public async updateVendorTypeValue(
+    currentUser: AuthenticatedUser,
+    id: string,
+    dto: UpdateCatalogItemDto
+  ) {
+    this.requireManager(currentUser);
+    if (Object.keys(dto).length === 0) {
+      throw new BadRequestException("At least one field must be provided");
+    }
+    const existing = await this.catalogRepository.findVendorTypeValue(id);
+    if (existing === null) {
+      throw new NotFoundException("Vendor type value not found");
+    }
+    try {
+      return await this.catalogRepository.updateVendorTypeValue(id, {
+        ...(dto.name !== undefined ? { name: dto.name.trim() } : {}),
+        ...(dto.sortOrder !== undefined ? { sortOrder: dto.sortOrder } : {}),
+        ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {})
+      });
+    } catch (error: unknown) {
+      if (CatalogService.isUniqueViolation(error)) {
+        throw new ConflictException("This vendor type already has a value with that name");
+      }
+      throw error;
+    }
+  }
+
+  public async deleteVendorTypeValue(currentUser: AuthenticatedUser, id: string) {
+    this.requireManager(currentUser);
+    const existing = await this.catalogRepository.findVendorTypeValue(id);
+    if (existing === null) {
+      throw new NotFoundException("Vendor type value not found");
+    }
+    await this.catalogRepository.deleteVendorTypeValue(id);
     return { ok: true as const };
   }
 }

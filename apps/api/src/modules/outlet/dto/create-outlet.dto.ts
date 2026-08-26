@@ -2,7 +2,6 @@ import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import {
   IsBoolean,
   IsEmail,
-  IsIn,
   IsInt,
   IsLatitude,
   IsLongitude,
@@ -14,7 +13,6 @@ import {
   MinLength
 } from "class-validator";
 
-import { VENDOR_TYPE_VALUES } from "../field-catalogs";
 import { OutletProfileExtrasDto } from "./outlet-profile-extras.dto";
 
 export class CreateOutletDto extends OutletProfileExtrasDto {
@@ -24,9 +22,16 @@ export class CreateOutletDto extends OutletProfileExtrasDto {
   @MaxLength(120)
   public name!: string;
 
-  @ApiProperty({ type: String, example: "Koko seller", description: "Vendor type", enum: VENDOR_TYPE_VALUES })
+  @ApiProperty({ type: String, example: "Table top", description: "Parent vendor type from the catalog" })
   @IsString()
-  @IsIn(VENDOR_TYPE_VALUES)
+  @MinLength(1)
+  @MaxLength(120)
+  public vendorTypeGroup!: string;
+
+  @ApiProperty({ type: String, example: "Koko seller", description: "Seller type (value under the vendor type)" })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(120)
   public category!: string;
 
   @ApiPropertyOptional({ type: String, example: "N/A", default: "N/A" })

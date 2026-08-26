@@ -81,6 +81,7 @@ const outletSelect = {
   id: true,
   vendorCode: true,
   name: true,
+  vendorTypeGroup: true,
   category: true,
   distributorName: true,
   locationArea: true,
@@ -119,6 +120,7 @@ const outletSelect = {
 
 type OutletWriteData = {
   name: string;
+  vendorTypeGroup?: string | null;
   category: string;
   distributorName: string;
   locationArea: string;
@@ -217,7 +219,11 @@ export class OutletRepository {
       where.createdBy = { is: { regionId: params.regionId } };
     }
     if (params.category !== undefined) {
-      where.category = params.category;
+      where.AND = [
+        {
+          OR: [{ vendorTypeGroup: params.category }, { category: params.category }]
+        }
+      ];
     }
     if (params.isActive !== undefined) {
       where.isActive = params.isActive;
@@ -233,6 +239,7 @@ export class OutletRepository {
       const or: Prisma.OutletWhereInput[] = [
         { vendorCode: { contains: query, mode: "insensitive" } },
         { name: { contains: query, mode: "insensitive" } },
+        { vendorTypeGroup: { contains: query, mode: "insensitive" } },
         { category: { contains: query, mode: "insensitive" } },
         { district: { contains: query, mode: "insensitive" } },
         { locationArea: { contains: query, mode: "insensitive" } },
@@ -453,6 +460,7 @@ export class OutletRepository {
             id: true,
             vendorCode: true,
             name: true,
+            vendorTypeGroup: true,
             category: true,
             distributorName: true,
             locationArea: true,
@@ -504,6 +512,7 @@ export class OutletRepository {
               id: true,
               vendorCode: true,
               name: true,
+              vendorTypeGroup: true,
               category: true,
               distributorName: true,
               locationArea: true,

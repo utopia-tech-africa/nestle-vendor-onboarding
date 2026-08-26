@@ -10,7 +10,7 @@ import { ListPagination } from "@/components/list-pagination";
 import { DatePicker } from "@/components/ui/date-picker";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useAuthStore } from "@/lib/auth/auth-store";
-import { parseJsonStringArray } from "@/lib/outlet/field-catalogs";
+import { parseJsonStringArray, vendorTypeDisplayLabel } from "@/lib/outlet/field-catalogs";
 import {
   formatVisitPageLabel,
   listOutletOptions,
@@ -71,7 +71,7 @@ const visitToExcelRow = (visit: OutletVisitRecord, hidePersonalContact: boolean)
   checkedInAt: visit.checkedInAt,
   vendorId: visit.outlet?.vendorCode ?? "",
   vendorName: visit.outlet?.name ?? visit.outletId,
-  vendorType: visit.outlet?.category ?? "",
+  vendorType: visit.outlet ? vendorTypeDisplayLabel(visit.outlet) : "",
   district: visit.outlet?.district ?? "",
   community: visit.outlet?.locationArea ?? "",
   promoterName: visit.user?.fullName ?? visit.userId,

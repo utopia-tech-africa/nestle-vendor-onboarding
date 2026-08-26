@@ -103,6 +103,10 @@ export default function RegisterVendorPage(): ReactElement {
       setVendorError("Business name, vendor name, and primary phone are required.");
       return;
     }
+    if (vendorForm.vendorTypeGroup.trim().length === 0 || vendorForm.category.trim().length === 0) {
+      setVendorError("Vendor type and seller type are required.");
+      return;
+    }
     setIsCapturingVendorLocation(true);
     void (async () => {
       const position = await requestCurrentPosition();
@@ -122,6 +126,7 @@ export default function RegisterVendorPage(): ReactElement {
       };
       const payload: CreateFieldOutletPayload = {
         name: vendorForm.name.trim(),
+        vendorTypeGroup: vendorForm.vendorTypeGroup.trim() || "Table top",
         category: vendorForm.category.trim() || "Koko seller",
         contactName: vendorForm.contactName.trim(),
         contactPhone: vendorForm.contactPhone.trim(),
@@ -242,8 +247,23 @@ export default function RegisterVendorPage(): ReactElement {
           <label className="text-sm">
             Vendor type
             <CatalogSelect
-              value={vendorForm.category}
+              value={vendorForm.vendorTypeGroup}
               options={catalogs.vendorTypes}
+              onValueChange={(value) => {
+                const nextValues = catalogs.vendorTypeValuesByType[value] ?? [];
+                setVendorForm((f) => ({
+                  ...f,
+                  vendorTypeGroup: value,
+                  category: nextValues[0]?.value ?? ""
+                }));
+              }}
+            />
+          </label>
+          <label className="text-sm">
+            Seller type
+            <CatalogSelect
+              value={vendorForm.category}
+              options={catalogs.vendorTypeValuesByType[vendorForm.vendorTypeGroup] ?? []}
               onValueChange={(value) => setVendorForm((f) => ({ ...f, category: value }))}
             />
           </label>

@@ -23,6 +23,7 @@ import type { AuthenticatedUser, UserRole } from "../../common/types/authenticat
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import type { Prisma } from "../../generated/prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
+import { vendorTypeExportLabel } from "../outlet/field-catalogs";
 import {
   buildNestleOverviewPdf,
   type NestleOverviewPayload
@@ -398,7 +399,7 @@ export class NestleDashboardController {
           csv(v.createdBy?.region?.name),
           csv(v.district),
           csv(v.locationArea),
-          csv(v.category),
+          csv(vendorTypeExportLabel(v)),
           v.yearsInBusiness ?? "",
           v.latitude ?? "",
           v.longitude ?? "",

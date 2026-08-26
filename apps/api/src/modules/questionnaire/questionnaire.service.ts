@@ -8,6 +8,7 @@ import {
 
 import type { AuthenticatedUser, UserRole } from "../../common/types/authenticated-user.type";
 import { CatalogService } from "../outlet/catalog.service";
+import { sellerTypeValues } from "../outlet/field-catalogs";
 import type { CreateQuestionnaireDto, UpdateQuestionnaireDto } from "./dto/questionnaire.dto";
 import { QuestionTypeDto as QuestionTypeEnum } from "./dto/questionnaire.dto";
 import {
@@ -94,7 +95,9 @@ export class QuestionnaireService {
     const questions = buildDefaultQuestionnaireQuestions({
       nestleProducts: catalogs.nestleProducts.map((item) => item.label),
       competitorBrands: catalogs.competitorBrands.map((item) => item.label),
-      competitorProducts: competitorProductLabelsFromCatalog(catalogs.competitorProductsByBrand)
+      competitorProducts: competitorProductLabelsFromCatalog(catalogs.competitorProductsByBrand),
+      vendorTypes: catalogs.vendorTypes.map((item) => item.label),
+      sellerTypes: sellerTypeValues(catalogs.vendorTypeValuesByType).map((item) => item.label)
     });
     const existing = await this.repository.findByTitle(DEFAULT_QUESTIONNAIRE_TITLE);
     if (existing !== null) {

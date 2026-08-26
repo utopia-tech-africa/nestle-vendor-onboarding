@@ -3,8 +3,12 @@ export type CatalogOption = {
   label: string;
 };
 
+export const VENDOR_TYPE_QUESTION_PROMPT = "Vendor type";
+export const SELLER_TYPE_QUESTION_PROMPT = "Seller type";
+
 export type FieldCatalogs = {
   vendorTypes: CatalogOption[];
+  vendorTypeValuesByType: Record<string, CatalogOption[]>;
   vendorRoles: CatalogOption[];
   genders: CatalogOption[];
   ageBrackets: CatalogOption[];
@@ -20,13 +24,10 @@ const option = (value: string, label = value): CatalogOption => ({ value, label 
 
 /** Offline / first-paint fallback matching API `field-catalogs.ts`. */
 export const FALLBACK_FIELD_CATALOGS: FieldCatalogs = {
-  vendorTypes: [
-    option("Koko seller"),
-    option("Market stall"),
-    option("Corner shop"),
-    option("Street vendor"),
-    option("Other")
-  ],
+  vendorTypes: [option("Table top")],
+  vendorTypeValuesByType: {
+    "Table top": [option("Koko seller"), option("Oats seller"), option("Other")]
+  },
   vendorRoles: [option("owner", "Owner"), option("worker", "Worker")],
   genders: [option("male", "Male"), option("female", "Female"), option("other", "Other")],
   ageBrackets: [
@@ -88,6 +89,28 @@ export const catalogLabel = (
     return "";
   }
   return options.find((item) => item.value === value)?.label ?? value;
+};
+
+export const vendorTypeDisplayLabel = (outlet: {
+  vendorTypeGroup?: string | null;
+  category: string;
+}): string => {
+  const group = outlet.vendorTypeGroup?.trim() ?? "";
+  if (group.length === 0) {
+    return outlet.category;
+  }
+  return `${group} · ${outlet.category}`;
+};
+
+export const catalogOptionsWithCurrent = (
+  options: CatalogOption[],
+  current: string | null | undefined
+): CatalogOption[] => {
+  const value = current?.trim() ?? "";
+  if (value.length === 0 || options.some((item) => item.value === value)) {
+    return options;
+  }
+  return [...options, { value, label: value }];
 };
 
 export const parseJsonStringArray = (raw: string | null | undefined): string[] => {

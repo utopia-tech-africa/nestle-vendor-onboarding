@@ -11,6 +11,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { VendorAvatar, VendorPhotoGallery } from "@/components/vendor-photos";
 import { useAuthStore } from "@/lib/auth/auth-store";
 import { calmMutedLinkClass } from "@/lib/calm-ui";
+import { vendorTypeDisplayLabel } from "@/lib/outlet/field-catalogs";
 import {
   formatPageRangeLabel,
   listOutlets,
@@ -163,7 +164,7 @@ export default function ClientVendorsPage(): ReactElement {
                       {outlet.vendorCode ? (
                         <p className="font-mono text-xs text-foreground">{outlet.vendorCode}</p>
                       ) : null}
-                      <p className="text-xs text-muted-foreground">{outlet.category}</p>
+                      <p className="text-xs text-muted-foreground">{vendorTypeDisplayLabel(outlet)}</p>
                       {outlet.createdBy != null ? (
                         <p className="mt-1 text-xs text-muted-foreground">
                           Onboarded by {outlet.createdBy.fullName}

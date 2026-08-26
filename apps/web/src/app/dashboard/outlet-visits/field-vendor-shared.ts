@@ -63,6 +63,7 @@ export const PHOTO_CATEGORIES: {
 
 export type NewVendorFormState = {
   name: string;
+  vendorTypeGroup: string;
   category: string;
   contactName: string;
   contactPhone: string;
@@ -83,6 +84,7 @@ export type CompetitorDraft = CompetitorObservationInput & { key: string };
 
 export const blankVendorForm = (regionId = ""): NewVendorFormState => ({
   name: "",
+  vendorTypeGroup: "Table top",
   category: "Koko seller",
   contactName: "",
   contactPhone: "",
@@ -136,6 +138,7 @@ export const pendingVendorsToRecords = (pendingVendors: PendingLocalVendor[]): O
   pendingVendors.map((vendor) => ({
     id: toPendingOutletId(vendor.localId),
     name: `${vendor.name} (offline)`,
+    vendorTypeGroup: vendor.vendorTypeGroup ?? null,
     category: vendor.category,
     distributorName: "N/A",
     locationArea: vendor.locationArea ?? "",

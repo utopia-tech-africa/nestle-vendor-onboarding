@@ -34,7 +34,7 @@ import {
   calmSecondaryButtonClass
 } from "@/lib/calm-ui";
 import { parseRegionsFromOrval } from "@/lib/ops/ops-adapters";
-import { FALLBACK_FIELD_CATALOGS, catalogLabel, type FieldCatalogs } from "@/lib/outlet/field-catalogs";
+import { FALLBACK_FIELD_CATALOGS, catalogLabel, vendorTypeDisplayLabel, catalogOptionsWithCurrent, type FieldCatalogs } from "@/lib/outlet/field-catalogs";
 import {
   createOutlet,
   formatPageRangeLabel,
@@ -63,6 +63,7 @@ const onboardedByLabel = (outlet: OutletRecord): string =>
 
 type OutletFormState = {
   name: string;
+  vendorTypeGroup: string;
   category: string;
   distributorName: string;
   locationArea: string;
@@ -86,6 +87,7 @@ type OutletFormState = {
 
 const blankForm: OutletFormState = {
   name: "",
+  vendorTypeGroup: "Table top",
   category: "Koko seller",
   distributorName: "N/A",
   locationArea: "",
@@ -134,6 +136,7 @@ const toPayload = (state: OutletFormState): CreateOutletPayload => {
     distributorName: state.distributorName.trim() || "N/A",
     contactName: state.contactName.trim(),
     contactPhone: state.contactPhone.trim(),
+    ...(state.vendorTypeGroup.trim() ? { vendorTypeGroup: state.vendorTypeGroup.trim() } : {}),
     ...(state.contactPhoneSecondary.trim()
       ? { contactPhoneSecondary: state.contactPhoneSecondary.trim() }
       : {}),
@@ -155,9 +158,15 @@ const toPayload = (state: OutletFormState): CreateOutletPayload => {
   };
 };
 
-const validateOutletForm = (state: OutletFormState): string | null => {
-  if (state.name.trim().length < 2 || state.category.trim().length < 2) {
-    return "Business name and vendor type are required.";
+const validateOutletForm = (state: OutletFormState, requireVendorType: boolean): string | null => {
+  if (state.name.trim().length < 2) {
+    return "Business name is required.";
+  }
+  if (requireVendorType && state.vendorTypeGroup.trim().length < 1) {
+    return "Vendor type is required.";
+  }
+  if (state.category.trim().length < 1) {
+    return "Seller type is required.";
   }
   if (state.contactName.trim().length < 2 || state.contactPhone.trim().length < 7) {
     return "Vendor name and phone are required.";
@@ -178,6 +187,7 @@ const validateOutletForm = (state: OutletFormState): string | null => {
 
 const outletToForm = (outlet: OutletRecord): OutletFormState => ({
   name: outlet.name,
+  vendorTypeGroup: outlet.vendorTypeGroup ?? "",
   category: outlet.category,
   distributorName: outlet.distributorName,
   locationArea: outlet.locationArea,
@@ -231,8 +241,28 @@ const VendorFields = ({
     <label className="text-xs font-medium text-muted-foreground">
       Vendor type
       <CatalogSelect
+        value={form.vendorTypeGroup}
+        options={catalogOptionsWithCurrent(catalogs.vendorTypes, form.vendorTypeGroup)}
+        onValueChange={(value) => {
+          const nextValues = catalogs.vendorTypeValuesByType[value] ?? [];
+          setForm((prev) => ({
+            ...prev,
+            vendorTypeGroup: value,
+            category: nextValues[0]?.value ?? ""
+          }));
+        }}
+        allowEmpty
+        emptyLabel="Select vendor type"
+      />
+    </label>
+    <label className="text-xs font-medium text-muted-foreground">
+      Seller type
+      <CatalogSelect
         value={form.category}
-        options={catalogs.vendorTypes}
+        options={catalogOptionsWithCurrent(
+          catalogs.vendorTypeValuesByType[form.vendorTypeGroup] ?? [],
+          form.category
+        )}
         onValueChange={(value) => {
           setForm((prev) => ({ ...prev, category: value }));
         }}
@@ -675,7 +705,7 @@ export default function OpsOutletsPage(): ReactElement {
   const handleCreate = (event: SyntheticEvent<HTMLFormElement>): void => {
     event.preventDefault();
     setFormError(null);
-    const validationError = validateOutletForm(createForm);
+    const validationError = validateOutletForm(createForm, true);
     if (validationError !== null) {
       setFormError(validationError);
       return;
@@ -702,7 +732,7 @@ export default function OpsOutletsPage(): ReactElement {
     event.preventDefault();
     if (editingOutlet === null) return;
     setFormError(null);
-    const validationError = validateOutletForm(editForm);
+    const validationError = validateOutletForm(editForm, false);
     if (validationError !== null) {
       setFormError(validationError);
       return;
@@ -779,7 +809,7 @@ export default function OpsOutletsPage(): ReactElement {
             />
           </label>
           <label className="text-xs font-medium text-muted-foreground">
-            Type
+            Vendor type
             <SearchableSelect
               value={typeFilter}
               onValueChange={setTypeFilter}
@@ -894,7 +924,7 @@ export default function OpsOutletsPage(): ReactElement {
                           <VendorAvatar outlet={outlet} size="sm" />
                           <div className="min-w-0">
                             <p className="font-medium text-foreground">{outlet.name}</p>
-                            <p className="text-xs text-muted-foreground">{outlet.category}</p>
+                            <p className="text-xs text-muted-foreground">{vendorTypeDisplayLabel(outlet)}</p>
                           </div>
                         </div>
                       </td>
@@ -988,7 +1018,7 @@ export default function OpsOutletsPage(): ReactElement {
                 </span>
               </dd>
             </div>
-            <DetailRow label="Vendor type" value={selectedOutlet.category} />
+            <DetailRow label="Vendor type" value={vendorTypeDisplayLabel(selectedOutlet)} />
             <DetailRow
               label="Role"
               value={catalogLabel(catalogs.vendorRoles, selectedOutlet.vendorRole)}

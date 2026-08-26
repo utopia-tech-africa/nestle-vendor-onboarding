@@ -14,15 +14,22 @@ import {
   createCompetitorBrand,
   createCompetitorProduct,
   createNestleProduct,
+  createVendorType,
+  createVendorTypeValue,
   deleteCompetitorBrand,
   deleteCompetitorProduct,
   deleteNestleProduct,
+  deleteVendorType,
+  deleteVendorTypeValue,
   listAdminCatalogs,
   updateCompetitorBrand,
   updateCompetitorProduct,
   updateNestleProduct,
+  updateVendorType,
+  updateVendorTypeValue,
   type CatalogCompetitorBrandRecord,
-  type CatalogItemRecord
+  type CatalogItemRecord,
+  type CatalogVendorTypeRecord
 } from "@/lib/outlet/outlet-api";
 import { toast } from "@/lib/toast";
 
@@ -102,6 +109,9 @@ export default function OpsCatalogsPage(): ReactElement {
   const [brandName, setBrandName] = useState("");
   const [productName, setProductName] = useState("");
   const [selectedBrandId, setSelectedBrandId] = useState<string | null>(null);
+  const [vendorTypeName, setVendorTypeName] = useState("");
+  const [sellerTypeName, setSellerTypeName] = useState("");
+  const [selectedVendorTypeId, setSelectedVendorTypeId] = useState<string | null>(null);
 
   const catalogsQuery = useQuery({
     queryKey: catalogsQueryKey,
@@ -114,6 +124,12 @@ export default function OpsCatalogsPage(): ReactElement {
     if (brands.length === 0) return undefined;
     return brands.find((brand) => brand.id === selectedBrandId) ?? brands[0];
   }, [brands, selectedBrandId]);
+
+  const vendorTypes = catalogsQuery.data?.vendorTypes;
+  const selectedVendorType: CatalogVendorTypeRecord | undefined = useMemo(() => {
+    if (vendorTypes === undefined || vendorTypes.length === 0) return undefined;
+    return vendorTypes.find((type) => type.id === selectedVendorTypeId) ?? vendorTypes[0];
+  }, [vendorTypes, selectedVendorTypeId]);
 
   const invalidate = async (): Promise<void> => {
     await queryClient.invalidateQueries({ queryKey: catalogsQueryKey });
@@ -203,6 +219,57 @@ export default function OpsCatalogsPage(): ReactElement {
     ...mutateOptions
   });
 
+  const createVendorTypeMutation = useMutation({
+    mutationFn: async (name: string) => createVendorType(accessToken ?? "", { name }),
+    ...mutateOptions,
+    onSuccess: async (created) => {
+      setVendorTypeName("");
+      setSelectedVendorTypeId(created.id);
+      await invalidate();
+      toast.success("Vendor type added");
+    }
+  });
+  const updateVendorTypeMutation = useMutation({
+    mutationFn: async (payload: { id: string; name: string; isActive: boolean }) =>
+      updateVendorType(accessToken ?? "", payload.id, {
+        name: payload.name,
+        isActive: payload.isActive
+      }),
+    ...mutateOptions
+  });
+  const deleteVendorTypeMutation = useMutation({
+    mutationFn: async (id: string) => deleteVendorType(accessToken ?? "", id),
+    ...mutateOptions,
+    onSuccess: async () => {
+      setSelectedVendorTypeId(null);
+      await invalidate();
+      toast.success("Catalog updated");
+    }
+  });
+
+  const createSellerTypeMutation = useMutation({
+    mutationFn: async (payload: { typeId: string; name: string }) =>
+      createVendorTypeValue(accessToken ?? "", payload.typeId, { name: payload.name }),
+    ...mutateOptions,
+    onSuccess: async () => {
+      setSellerTypeName("");
+      await invalidate();
+      toast.success("Seller type added");
+    }
+  });
+  const updateSellerTypeMutation = useMutation({
+    mutationFn: async (payload: { id: string; name: string; isActive: boolean }) =>
+      updateVendorTypeValue(accessToken ?? "", payload.id, {
+        name: payload.name,
+        isActive: payload.isActive
+      }),
+    ...mutateOptions
+  });
+  const deleteSellerTypeMutation = useMutation({
+    mutationFn: async (id: string) => deleteVendorTypeValue(accessToken ?? "", id),
+    ...mutateOptions
+  });
+
   const busy =
     createNestleMutation.isPending ||
     updateNestleMutation.isPending ||
@@ -212,7 +279,13 @@ export default function OpsCatalogsPage(): ReactElement {
     deleteBrandMutation.isPending ||
     createProductMutation.isPending ||
     updateProductMutation.isPending ||
-    deleteProductMutation.isPending;
+    deleteProductMutation.isPending ||
+    createVendorTypeMutation.isPending ||
+    updateVendorTypeMutation.isPending ||
+    deleteVendorTypeMutation.isPending ||
+    createSellerTypeMutation.isPending ||
+    updateSellerTypeMutation.isPending ||
+    deleteSellerTypeMutation.isPending;
 
   const onAddNestle = (event: SyntheticEvent<HTMLFormElement>): void => {
     event.preventDefault();
@@ -236,13 +309,28 @@ export default function OpsCatalogsPage(): ReactElement {
     createProductMutation.mutate({ brandId: selectedBrand.id, name });
   };
 
+  const onAddVendorType = (event: SyntheticEvent<HTMLFormElement>): void => {
+    event.preventDefault();
+    const name = vendorTypeName.trim();
+    if (name.length === 0) return;
+    createVendorTypeMutation.mutate(name);
+  };
+
+  const onAddSellerType = (event: SyntheticEvent<HTMLFormElement>): void => {
+    event.preventDefault();
+    if (selectedVendorType === undefined) return;
+    const name = sellerTypeName.trim();
+    if (name.length === 0) return;
+    createSellerTypeMutation.mutate({ typeId: selectedVendorType.id, name });
+  };
+
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">Products & competitors</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">Products, competitors & vendor types</h1>
         <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-          Add Nestlé products, competitor brands, and competitor products. Promoters see these as
-          dropdowns on the visit form — they do not type free text.
+          Add Nestlé products, competitor brands, vendor types, and seller types. Promoters see these as
+          dropdowns on onboarding and the visit form — they do not type free text.
         </p>
       </div>
 
@@ -382,6 +470,106 @@ export default function OpsCatalogsPage(): ReactElement {
                       }}
                       onDelete={(id) => {
                         deleteProductMutation.mutate(id);
+                      }}
+                    />
+                  ))}
+                </ul>
+              </>
+            )}
+          </section>
+
+          <section className={cardClass}>
+            <h2 className="text-base font-semibold text-foreground">Vendor types</h2>
+            <form className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-end" onSubmit={onAddVendorType}>
+              <label className="min-w-0 flex-1 text-xs font-medium text-muted-foreground">
+                New type
+                <input
+                  className={inputClass}
+                  value={vendorTypeName}
+                  onChange={(event) => {
+                    setVendorTypeName(event.target.value);
+                  }}
+                  placeholder="e.g. Table top"
+                />
+              </label>
+              <button type="submit" className={calmPrimaryButtonInlineClass} disabled={busy}>
+                Add
+              </button>
+            </form>
+            <ul className="mt-4 space-y-2">
+              {(vendorTypes ?? []).map((type) => (
+                <li key={type.id}>
+                  <button
+                    type="button"
+                    className={[
+                      "mb-2 w-full rounded-md border px-3 py-1.5 text-left text-xs font-medium",
+                      selectedVendorType?.id === type.id
+                        ? "border-primary bg-primary/10 text-foreground"
+                        : "border-border text-muted-foreground hover:bg-muted/40"
+                    ].join(" ")}
+                    onClick={() => {
+                      setSelectedVendorTypeId(type.id);
+                    }}
+                  >
+                    {type.name}
+                    {type.isActive ? "" : " (inactive)"} · {String(type.values.length)} values
+                  </button>
+                  {selectedVendorType?.id === type.id ? (
+                    <CatalogRow
+                      row={type}
+                      busy={busy}
+                      onSave={(id, name, isActive) => {
+                        updateVendorTypeMutation.mutate({ id, name, isActive });
+                      }}
+                      onDelete={(id) => {
+                        deleteVendorTypeMutation.mutate(id);
+                      }}
+                    />
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          <section className={`${cardClass} lg:col-span-2`}>
+            <h2 className="text-base font-semibold text-foreground">
+              Seller types
+              {selectedVendorType ? ` · ${selectedVendorType.name}` : ""}
+            </h2>
+            {selectedVendorType === undefined ? (
+              <p className="mt-3 text-sm text-muted-foreground">Add a vendor type first.</p>
+            ) : (
+              <>
+                <form
+                  className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-end"
+                  onSubmit={onAddSellerType}
+                >
+                  <label className="min-w-0 flex-1 text-xs font-medium text-muted-foreground">
+                    New seller type for {selectedVendorType.name}
+                    <input
+                      className={inputClass}
+                      value={sellerTypeName}
+                      onChange={(event) => {
+                        setSellerTypeName(event.target.value);
+                      }}
+                      placeholder="e.g. Koko seller"
+                    />
+                  </label>
+                  <button type="submit" className={calmPrimaryButtonInlineClass} disabled={busy}>
+                    Add
+                  </button>
+                </form>
+                <ul className="mt-4 space-y-2">
+                  {selectedVendorType.values.map((row) => (
+                    <CatalogRow
+                      key={row.id}
+                      row={row}
+                      busy={busy}
+                      onSave={(id, name, isActive) => {
+                        updateSellerTypeMutation.mutate({ id, name, isActive });
+                      }}
+                      onDelete={(id) => {
+                        deleteSellerTypeMutation.mutate(id);
                       }}
                     />
                   ))}

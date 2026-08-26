@@ -26,6 +26,7 @@ export type FieldOutboxEntry =
 export type PendingLocalVendor = {
   localId: string;
   name: string;
+  vendorTypeGroup?: string;
   category: string;
   contactName: string;
   contactPhone: string;
@@ -166,6 +167,7 @@ export const listPendingLocalVendors = async (): Promise<PendingLocalVendor[]> =
     .map((e) => ({
       localId: e.localId,
       name: e.payload.name,
+      ...(e.payload.vendorTypeGroup ? { vendorTypeGroup: e.payload.vendorTypeGroup } : {}),
       category: e.payload.category,
       contactName: e.payload.contactName,
       contactPhone: e.payload.contactPhone,

@@ -39,7 +39,7 @@ export class CatalogAdminController {
   @Get()
   @ApiOperation({
     operationId: "AdminCatalog_listCatalogs",
-    summary: "List Nestlé products and competitor catalogs"
+    summary: "List Nestlé products, competitor catalogs, and vendor types"
   })
   @ApiOkResponse({ description: "Editable catalog rows" })
   @ApiUnauthorizedResponse({ description: "Missing or invalid JWT" })
@@ -182,5 +182,95 @@ export class CatalogAdminController {
     @Param("id") id: string
   ) {
     return this.catalogService.deleteCompetitorProduct(currentUser, id);
+  }
+
+  @Post("vendor-types")
+  @ApiOperation({
+    operationId: "AdminCatalog_createVendorType",
+    summary: "Add a vendor type"
+  })
+  @ApiBody({ type: CreateCatalogItemDto })
+  @ApiCreatedResponse({ description: "Vendor type created" })
+  public createVendorType(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Body() body: CreateCatalogItemDto
+  ) {
+    return this.catalogService.createVendorType(currentUser, body);
+  }
+
+  @Patch("vendor-types/:id")
+  @ApiOperation({
+    operationId: "AdminCatalog_updateVendorType",
+    summary: "Update a vendor type"
+  })
+  @ApiParam({ name: "id" })
+  @ApiBody({ type: UpdateCatalogItemDto })
+  @ApiOkResponse({ description: "Vendor type updated" })
+  public updateVendorType(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Param("id") id: string,
+    @Body() body: UpdateCatalogItemDto
+  ) {
+    return this.catalogService.updateVendorType(currentUser, id, body);
+  }
+
+  @Delete("vendor-types/:id")
+  @ApiOperation({
+    operationId: "AdminCatalog_deleteVendorType",
+    summary: "Delete a vendor type and its values"
+  })
+  @ApiParam({ name: "id" })
+  @ApiOkResponse({ description: "Deleted" })
+  public deleteVendorType(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Param("id") id: string
+  ) {
+    return this.catalogService.deleteVendorType(currentUser, id);
+  }
+
+  @Post("vendor-types/:typeId/values")
+  @ApiOperation({
+    operationId: "AdminCatalog_createVendorTypeValue",
+    summary: "Add a seller type under a vendor type"
+  })
+  @ApiParam({ name: "typeId" })
+  @ApiBody({ type: CreateCatalogItemDto })
+  @ApiCreatedResponse({ description: "Value created" })
+  public createVendorTypeValue(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Param("typeId") typeId: string,
+    @Body() body: CreateCatalogItemDto
+  ) {
+    return this.catalogService.createVendorTypeValue(currentUser, typeId, body);
+  }
+
+  @Patch("vendor-type-values/:id")
+  @ApiOperation({
+    operationId: "AdminCatalog_updateVendorTypeValue",
+    summary: "Update a vendor type value"
+  })
+  @ApiParam({ name: "id" })
+  @ApiBody({ type: UpdateCatalogItemDto })
+  @ApiOkResponse({ description: "Value updated" })
+  public updateVendorTypeValue(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Param("id") id: string,
+    @Body() body: UpdateCatalogItemDto
+  ) {
+    return this.catalogService.updateVendorTypeValue(currentUser, id, body);
+  }
+
+  @Delete("vendor-type-values/:id")
+  @ApiOperation({
+    operationId: "AdminCatalog_deleteVendorTypeValue",
+    summary: "Delete a vendor type value"
+  })
+  @ApiParam({ name: "id" })
+  @ApiOkResponse({ description: "Deleted" })
+  public deleteVendorTypeValue(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Param("id") id: string
+  ) {
+    return this.catalogService.deleteVendorTypeValue(currentUser, id);
   }
 }

@@ -22,7 +22,7 @@ import { useAuthStore } from "@/lib/auth/auth-store";
 import { calmMutedLinkClass, calmPrimaryButtonClass } from "@/lib/calm-ui";
 import { enqueueOutletVisitForOfflineSync } from "@/lib/field/field-offline-enqueue";
 import { requestCurrentPosition } from "@/lib/geolocation/request-current-position";
-import { FALLBACK_FIELD_CATALOGS } from "@/lib/outlet/field-catalogs";
+import { FALLBACK_FIELD_CATALOGS, SELLER_TYPE_QUESTION_PROMPT, VENDOR_TYPE_QUESTION_PROMPT } from "@/lib/outlet/field-catalogs";
 import {
   createOutletVisit,
   getActiveQuestionnaire,
@@ -89,6 +89,21 @@ function RecordVendorVisitPageInner(): ReactElement {
     enabled: accessToken !== null,
     staleTime: 5 * 60 * 1000
   });
+
+  const vendorTypeQuestionId = useMemo(
+    () =>
+      questionnaireQuery.data?.questions.find((question) => question.prompt === VENDOR_TYPE_QUESTION_PROMPT)
+        ?.id,
+    [questionnaireQuery.data]
+  );
+  const sellerTypeQuestionId = useMemo(
+    () =>
+      questionnaireQuery.data?.questions.find((question) => question.prompt === SELLER_TYPE_QUESTION_PROMPT)
+        ?.id,
+    [questionnaireQuery.data]
+  );
+  const selectedVendorTypeAnswer =
+    vendorTypeQuestionId !== undefined ? (answers[vendorTypeQuestionId] ?? "") : "";
 
   const selectedOutlet = useMemo(() => {
     if (!outletId) return null;
@@ -299,7 +314,16 @@ function RecordVendorVisitPageInner(): ReactElement {
               <p className="text-sm font-medium">{questionnaireQuery.data.title}</p>
               <div className="grid gap-4 sm:grid-cols-2">
               {questionnaireQuery.data.questions.map((q) => {
-                const options = parseQuestionOptions(q.optionsJson);
+                const storedOptions = parseQuestionOptions(q.optionsJson);
+                const sellerOptions = (
+                  catalogs.vendorTypeValuesByType[selectedVendorTypeAnswer] ?? []
+                ).map((item) => item.label);
+                const options =
+                  q.prompt === VENDOR_TYPE_QUESTION_PROMPT
+                    ? catalogs.vendorTypes.map((item) => item.label)
+                    : q.prompt === SELLER_TYPE_QUESTION_PROMPT
+                      ? sellerOptions
+                      : storedOptions;
                 const isWide = q.type === "textarea" || q.type === "multi_choice";
                 return (
                   <div key={q.id} className={`block text-sm${isWide ? " sm:col-span-2" : ""}`}>
@@ -342,12 +366,16 @@ function RecordVendorVisitPageInner(): ReactElement {
                     ) : q.type === "single_choice" ? (
                       <Select
                         value={answers[q.id]?.length ? answers[q.id]! : SELECT_NONE}
-                        onValueChange={(value) =>
-                          setAnswers((prev) => ({
-                            ...prev,
-                            [q.id]: value === SELECT_NONE ? "" : value
-                          }))
-                        }
+                        onValueChange={(value) => {
+                          const next = value === SELECT_NONE ? "" : value;
+                          setAnswers((prev) => {
+                            const updated = { ...prev, [q.id]: next };
+                            if (q.prompt === VENDOR_TYPE_QUESTION_PROMPT && sellerTypeQuestionId) {
+                              updated[sellerTypeQuestionId] = "";
+                            }
+                            return updated;
+                          });
+                        }}
                       >
                         <SelectTrigger className="mt-1 h-10 w-full">
                           <SelectValue placeholder="Select" />

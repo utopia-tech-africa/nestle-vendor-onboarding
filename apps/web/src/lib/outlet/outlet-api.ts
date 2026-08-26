@@ -5,6 +5,7 @@ export type OutletRecord = {
   id: string;
   vendorCode?: string;
   name: string;
+  vendorTypeGroup?: string | null;
   category: string;
   distributorName: string;
   locationArea: string;
@@ -70,6 +71,7 @@ export type OutletProfileFields = {
 
 export type CreateOutletPayload = {
   name: string;
+  vendorTypeGroup?: string;
   category: string;
   distributorName?: string;
   locationArea?: string;
@@ -87,6 +89,7 @@ export type CreateOutletPayload = {
 /** Field promoter on-site vendor creation (GPS required). */
 export type CreateFieldOutletPayload = {
   name: string;
+  vendorTypeGroup?: string;
   category: string;
   distributorName?: string;
   latitude: number;
@@ -220,6 +223,7 @@ export type OutletVisitRecord = {
     id: string;
     vendorCode?: string;
     name: string;
+    vendorTypeGroup?: string | null;
     category: string;
     distributorName: string;
     locationArea: string;
@@ -350,9 +354,14 @@ export type CatalogCompetitorBrandRecord = CatalogItemRecord & {
   products: (CatalogItemRecord & { brandId: string })[];
 };
 
+export type CatalogVendorTypeRecord = CatalogItemRecord & {
+  values: (CatalogItemRecord & { typeId: string })[];
+};
+
 export type AdminCatalogs = {
   nestleProducts: CatalogItemRecord[];
   competitorBrands: CatalogCompetitorBrandRecord[];
+  vendorTypes: CatalogVendorTypeRecord[];
 };
 
 export const listAdminCatalogs = async (token: string): Promise<AdminCatalogs> =>
@@ -438,6 +447,60 @@ export const updateCompetitorProduct = async (
 
 export const deleteCompetitorProduct = async (token: string, id: string): Promise<{ ok: boolean }> =>
   apiRequest<{ ok: boolean }>(`/admin/catalogs/competitor-products/${id}`, {
+    method: "DELETE",
+    token
+  });
+
+export const createVendorType = async (
+  token: string,
+  payload: CatalogItemPayload
+): Promise<CatalogVendorTypeRecord> =>
+  apiRequest<CatalogVendorTypeRecord>("/admin/catalogs/vendor-types", {
+    method: "POST",
+    token,
+    body: payload
+  });
+
+export const updateVendorType = async (
+  token: string,
+  id: string,
+  payload: Partial<CatalogItemPayload>
+): Promise<CatalogVendorTypeRecord> =>
+  apiRequest<CatalogVendorTypeRecord>(`/admin/catalogs/vendor-types/${id}`, {
+    method: "PATCH",
+    token,
+    body: payload
+  });
+
+export const deleteVendorType = async (token: string, id: string): Promise<{ ok: boolean }> =>
+  apiRequest<{ ok: boolean }>(`/admin/catalogs/vendor-types/${id}`, {
+    method: "DELETE",
+    token
+  });
+
+export const createVendorTypeValue = async (
+  token: string,
+  typeId: string,
+  payload: CatalogItemPayload
+): Promise<CatalogItemRecord & { typeId: string }> =>
+  apiRequest<CatalogItemRecord & { typeId: string }>(
+    `/admin/catalogs/vendor-types/${typeId}/values`,
+    { method: "POST", token, body: payload }
+  );
+
+export const updateVendorTypeValue = async (
+  token: string,
+  id: string,
+  payload: Partial<CatalogItemPayload>
+): Promise<CatalogItemRecord & { typeId: string }> =>
+  apiRequest<CatalogItemRecord & { typeId: string }>(`/admin/catalogs/vendor-type-values/${id}`, {
+    method: "PATCH",
+    token,
+    body: payload
+  });
+
+export const deleteVendorTypeValue = async (token: string, id: string): Promise<{ ok: boolean }> =>
+  apiRequest<{ ok: boolean }>(`/admin/catalogs/vendor-type-values/${id}`, {
     method: "DELETE",
     token
   });

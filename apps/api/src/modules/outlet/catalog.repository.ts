@@ -35,6 +35,29 @@ const competitorBrandSelect = {
   }
 } satisfies Prisma.CatalogCompetitorBrandSelect;
 
+const vendorTypeValueSelect = {
+  id: true,
+  typeId: true,
+  name: true,
+  sortOrder: true,
+  isActive: true,
+  createdAt: true,
+  updatedAt: true
+} satisfies Prisma.CatalogVendorTypeValueSelect;
+
+const vendorTypeSelect = {
+  id: true,
+  name: true,
+  sortOrder: true,
+  isActive: true,
+  createdAt: true,
+  updatedAt: true,
+  values: {
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    select: vendorTypeValueSelect
+  }
+} satisfies Prisma.CatalogVendorTypeSelect;
+
 @Injectable()
 export class CatalogRepository {
   public constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
@@ -140,6 +163,83 @@ export class CatalogRepository {
     return this.prisma.catalogCompetitorProduct.findUnique({
       where: { id },
       select: competitorProductSelect
+    });
+  }
+
+  public listVendorTypes(activeOnly: boolean) {
+    return this.prisma.catalogVendorType.findMany({
+      where: activeOnly ? { isActive: true } : {},
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+      select: {
+        id: true,
+        name: true,
+        sortOrder: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
+        values: {
+          where: activeOnly ? { isActive: true } : {},
+          orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+          select: vendorTypeValueSelect
+        }
+      }
+    });
+  }
+
+  public createVendorType(data: { name: string; sortOrder: number; isActive: boolean }) {
+    return this.prisma.catalogVendorType.create({ data, select: vendorTypeSelect });
+  }
+
+  public updateVendorType(
+    id: string,
+    data: Partial<{ name: string; sortOrder: number; isActive: boolean }>
+  ) {
+    return this.prisma.catalogVendorType.update({
+      where: { id },
+      data,
+      select: vendorTypeSelect
+    });
+  }
+
+  public deleteVendorType(id: string) {
+    return this.prisma.catalogVendorType.delete({ where: { id }, select: { id: true } });
+  }
+
+  public findVendorType(id: string) {
+    return this.prisma.catalogVendorType.findUnique({
+      where: { id },
+      select: vendorTypeSelect
+    });
+  }
+
+  public createVendorTypeValue(data: {
+    typeId: string;
+    name: string;
+    sortOrder: number;
+    isActive: boolean;
+  }) {
+    return this.prisma.catalogVendorTypeValue.create({ data, select: vendorTypeValueSelect });
+  }
+
+  public updateVendorTypeValue(
+    id: string,
+    data: Partial<{ name: string; sortOrder: number; isActive: boolean }>
+  ) {
+    return this.prisma.catalogVendorTypeValue.update({
+      where: { id },
+      data,
+      select: vendorTypeValueSelect
+    });
+  }
+
+  public deleteVendorTypeValue(id: string) {
+    return this.prisma.catalogVendorTypeValue.delete({ where: { id }, select: { id: true } });
+  }
+
+  public findVendorTypeValue(id: string) {
+    return this.prisma.catalogVendorTypeValue.findUnique({
+      where: { id },
+      select: vendorTypeValueSelect
     });
   }
 }

@@ -220,7 +220,9 @@ model Outlet {
   /// Region-based public vendor ID (e.g. GA-001). Assigned at create and not reused.
   vendorCode       String   @unique
   name             String
-  /// Vendor type (e.g. koko seller, shop, market stall).
+  /// Parent vendor type (e.g. Table top). Null on legacy rows.
+  vendorTypeGroup  String?
+  /// Seller type under the parent (e.g. koko seller), or a legacy flat type.
   category         String
   distributorName  String   @default("N/A")
   /// Community / locality label (brief: Community).
@@ -255,6 +257,7 @@ model Outlet {
 
   @@index([regionId])
   @@index([createdByUserId])
+  @@index([vendorTypeGroup])
   @@index([createdAt(sort: Desc)])
 }
 
@@ -466,4 +469,30 @@ model CatalogCompetitorProduct {
 
   @@unique([brandId, name])
   @@index([brandId, sortOrder])
+}
+
+/// Parent vendor type (e.g. Table top) managed by Ops.
+model CatalogVendorType {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  values    CatalogVendorTypeValue[]
+}
+
+/// Seller type under a vendor type (e.g. Koko seller under Table top).
+model CatalogVendorTypeValue {
+  id        String            @id @default(cuid())
+  typeId    String
+  name      String
+  sortOrder Int               @default(0)
+  isActive  Boolean           @default(true)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  type      CatalogVendorType @relation(fields: [typeId], references: [id], onDelete: Cascade)
+
+  @@unique([typeId, name])
+  @@index([typeId, sortOrder])
 }

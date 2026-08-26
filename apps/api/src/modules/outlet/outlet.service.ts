@@ -22,6 +22,7 @@ import { MnotifySmsService } from "../sms/mnotify-sms.service";
 import type { CreateFieldOutletDto } from "./dto/create-field-outlet.dto";
 import type { CreateOutletDto } from "./dto/create-outlet.dto";
 import type { UpdateOutletDto } from "./dto/update-outlet.dto";
+import { CatalogService } from "./catalog.service";
 import { OutletRepository } from "./outlet.repository";
 
 const OUTLET_MANAGER_ROLES = new Set<UserRole>(["admin", "supervisor"]);
@@ -54,6 +55,7 @@ type OutletWithOnboardingPhotos = {
 export class OutletService {
   public constructor(
     @Inject(OutletRepository) private readonly outletRepository: OutletRepository,
+    @Inject(CatalogService) private readonly catalogService: CatalogService,
     @Inject(ReverseGeocodeService) private readonly reverseGeocode: ReverseGeocodeService,
     @Inject(OpsAlertService) private readonly opsAlertService: OpsAlertService,
     @Inject(CloudinaryService) private readonly cloudinaryService: CloudinaryService,
@@ -196,6 +198,18 @@ export class OutletService {
     };
   }
 
+  private async assertVendorTypeCatalog(group: string, value: string): Promise<void> {
+    const catalogs = await this.catalogService.getFieldCatalogs();
+    const typeOk = catalogs.vendorTypes.some((item) => item.value === group);
+    if (!typeOk) {
+      throw new BadRequestException("Unknown vendor type");
+    }
+    const values = catalogs.vendorTypeValuesByType[group] ?? [];
+    if (!values.some((item) => item.value === value)) {
+      throw new BadRequestException("Seller type is not valid for the selected vendor type");
+    }
+  }
+
   private profileFieldsFromCreate(dto: CreateOutletDto | CreateFieldOutletDto) {
     return {
       contactPhoneSecondary: dto.contactPhoneSecondary?.trim() ?? null,
@@ -305,10 +319,14 @@ export class OutletService {
 
   public async createForAdmin(currentUser: AuthenticatedUser, dto: CreateOutletDto) {
     this.assertOutletManager(currentUser);
+    const vendorTypeGroup = dto.vendorTypeGroup.trim();
+    const category = dto.category.trim();
+    await this.assertVendorTypeCatalog(vendorTypeGroup, category);
     const location = await this.buildAdminLocationFields(dto);
     const created = await this.outletRepository.create({
       name: dto.name.trim(),
-      category: dto.category.trim(),
+      vendorTypeGroup,
+      category,
       distributorName: (dto.distributorName ?? "N/A").trim(),
       locationArea: location.locationArea,
       district: dto.district?.trim() ?? null,
@@ -376,9 +394,14 @@ export class OutletService {
       }
     }
 
+    const vendorTypeGroup = dto.vendorTypeGroup.trim();
+    const category = dto.category.trim();
+    await this.assertVendorTypeCatalog(vendorTypeGroup, category);
+
     const created = await this.outletRepository.create({
       name: dto.name.trim(),
-      category: dto.category.trim(),
+      vendorTypeGroup,
+      category,
       distributorName: (dto.distributorName ?? "N/A").trim(),
       locationArea,
       district: dto.district?.trim() ?? null,
@@ -426,6 +449,7 @@ export class OutletService {
 
     const locationInput: CreateOutletDto = {
       name: dto.name ?? existing.name,
+      vendorTypeGroup: dto.vendorTypeGroup ?? existing.vendorTypeGroup ?? "Table top",
       category: dto.category ?? existing.category,
       distributorName: dto.distributorName ?? existing.distributorName,
       locationArea: dto.locationArea ?? existing.locationArea,
@@ -454,9 +478,19 @@ export class OutletService {
         ? await this.buildAdminLocationFields(locationInput)
         : null;
 
+    const nextVendorTypeGroup =
+      dto.vendorTypeGroup !== undefined
+        ? dto.vendorTypeGroup.trim() || null
+        : existing.vendorTypeGroup;
+    const nextCategory = dto.category !== undefined ? dto.category.trim() : existing.category;
+    if (nextVendorTypeGroup != null && nextVendorTypeGroup.length > 0) {
+      await this.assertVendorTypeCatalog(nextVendorTypeGroup, nextCategory);
+    }
+
     const updated = await this.outletRepository.update(id, {
       ...(dto.name !== undefined ? { name: dto.name.trim() } : {}),
-      ...(dto.category !== undefined ? { category: dto.category.trim() } : {}),
+      ...(dto.vendorTypeGroup !== undefined ? { vendorTypeGroup: nextVendorTypeGroup } : {}),
+      ...(dto.category !== undefined ? { category: nextCategory } : {}),
       ...(dto.distributorName !== undefined ? { distributorName: dto.distributorName.trim() } : {}),
       ...(dto.district !== undefined ? { district: dto.district.trim() || null } : {}),
       ...(dto.regionId !== undefined ? { regionId: dto.regionId.trim() || null } : {}),

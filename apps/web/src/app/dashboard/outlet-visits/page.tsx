@@ -8,6 +8,7 @@ import { BoneyardInlineFallback } from "@/components/boneyard/boneyard-inline-fa
 import { VendorAvatar } from "@/components/vendor-photos";
 import { useAuthStore } from "@/lib/auth/auth-store";
 import { calmMutedLinkClass, calmPrimaryButtonInlineClass } from "@/lib/calm-ui";
+import { vendorTypeDisplayLabel } from "@/lib/outlet/field-catalogs";
 
 import {
   fieldVendorInputClass,
@@ -30,7 +31,9 @@ export default function FieldVendorsHubPage(): ReactElement {
         vendor.contactName,
         vendor.contactPhone,
         vendor.district,
-        vendor.locationArea
+        vendor.locationArea,
+        vendor.vendorTypeGroup,
+        vendor.category
       ]
         .filter(Boolean)
         .join(" ")
@@ -127,7 +130,7 @@ export default function FieldVendorsHubPage(): ReactElement {
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium text-foreground">{vendor.name}</p>
                         <p className="truncate text-xs text-muted-foreground">
-                          {place.length > 0 ? place : vendor.category}
+                          {place.length > 0 ? place : vendorTypeDisplayLabel(vendor)}
                         </p>
                       </div>
                     </div>
@@ -170,7 +173,7 @@ export default function FieldVendorsHubPage(): ReactElement {
                             </div>
                           </div>
                         </td>
-                        <td className="py-3 pr-3 text-muted-foreground">{vendor.category}</td>
+                        <td className="py-3 pr-3 text-muted-foreground">{vendorTypeDisplayLabel(vendor)}</td>
                         <td className="py-3 pr-3 text-muted-foreground">
                           {place.length > 0 ? place : "—"}
                         </td>
