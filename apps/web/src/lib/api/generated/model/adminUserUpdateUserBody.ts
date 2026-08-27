@@ -11,6 +11,11 @@ import type { AdminUserUpdateUserBodyRole } from './adminUserUpdateUserBodyRole'
 export type AdminUserUpdateUserBody = {
   fullName?: string;
   /**
+     * Corrected mobile number. They sign in with this number and the same access code.
+     * @example "0244123456"
+     */
+  phone?: string;
+  /**
      * Email for ops alerts / digests, or null to clear
      * @nullable
      */

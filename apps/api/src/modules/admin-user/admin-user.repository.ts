@@ -112,6 +112,7 @@ export class AdminUserRepository {
     patch: Partial<{
       fullName: string;
       email: string | null;
+      phone: string;
       role: UserRole;
       regionId: string | null;
       isActive: boolean;

@@ -11,6 +11,8 @@ import {
   ValidateIf
 } from "class-validator";
 
+import { PhoneNumberField } from "../../../common/decorators/phone.decorators";
+
 /** PATCH body: `regionId` may be a cuid string or `null` to clear the user's region. */
 export class UpdateAdminUserDto {
   @ApiPropertyOptional()
@@ -19,6 +21,15 @@ export class UpdateAdminUserDto {
   @MinLength(1)
   @MaxLength(128)
   public fullName?: string;
+
+  @ApiPropertyOptional({
+    example: "0244123456",
+    description:
+      "Corrected mobile number. They sign in with this number and the same access code."
+  })
+  @IsOptional()
+  @PhoneNumberField()
+  public phone?: string;
 
   @ApiPropertyOptional({
     description: "Email for ops alerts / digests, or null to clear",

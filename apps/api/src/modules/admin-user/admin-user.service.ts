@@ -173,6 +173,16 @@ export class AdminUserService {
     if (dto.fullName !== undefined) {
       patch.fullName = dto.fullName.trim();
     }
+    if (dto.phone !== undefined) {
+      const phone = dto.phone.trim();
+      if (phone !== existing.phone) {
+        const phoneTaken = await this.repository.findByPhone(phone);
+        if (phoneTaken !== null && phoneTaken.id !== id) {
+          throw new ConflictException("A user with this phone already exists");
+        }
+        patch.phone = phone;
+      }
+    }
     if (dto.email !== undefined) {
       if (dto.email === null || dto.email.trim().length === 0) {
         patch.email = null;

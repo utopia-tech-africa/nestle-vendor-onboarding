@@ -191,6 +191,7 @@ export default function OpsUsersPage(): ReactElement {
 
   const [editing, setEditing] = useState<AdminUserRow | null>(null);
   const [editFullName, setEditFullName] = useState("");
+  const [editPhone, setEditPhone] = useState("");
   const [editEmail, setEditEmail] = useState("");
   const [editRole, setEditRole] = useState<(typeof ALL_ROLES)[number]>(
     AdminUserCreateUserBodyRole.promoter
@@ -242,6 +243,7 @@ export default function OpsUsersPage(): ReactElement {
     setFormError(null);
     setEditing(row);
     setEditFullName(row.fullName);
+    setEditPhone(row.phone);
     setEditEmail(row.email ?? "");
     setEditRole(row.role);
     setEditRegionId(row.regionId ?? "");
@@ -313,8 +315,13 @@ export default function OpsUsersPage(): ReactElement {
     if (!editing) return;
     setFormError(null);
     const fullName = editFullName.trim();
+    const phone = editPhone.trim();
     if (!fullName) {
       setFormError("Full name is required.");
+      return;
+    }
+    if (!phone) {
+      setFormError("Phone is required.");
       return;
     }
     const body: AdminUserUpdateUserBody = {
@@ -323,6 +330,9 @@ export default function OpsUsersPage(): ReactElement {
       isActive: editActive,
       email: editEmail.trim().length > 0 ? editEmail.trim() : null
     };
+    if (phone !== editing.phone) {
+      body.phone = phone;
+    }
     if (editGender) {
       body.gender = editGender;
     }
@@ -339,6 +349,12 @@ export default function OpsUsersPage(): ReactElement {
       { id: editing.id, data: body },
       {
         onSuccess: () => {
+          toast.success("User updated", {
+            description:
+              phone !== editing.phone
+                ? "They sign in with the new number and the same access code."
+                : undefined
+          });
           cancelEdit();
         },
         onError: (err: unknown) => {
@@ -372,9 +388,9 @@ export default function OpsUsersPage(): ReactElement {
           sends successfully—if it does not go through, nothing is saved and you can try again or
           ask whoever runs your systems to check the text-message setup. Add an email on
           supervisor/admin accounts so they receive Resend ops alerts and attendance digests.
-          Supervisors can add and manage promoters and clients. Only admins can add or change
-          supervisor and admin accounts. Assign promoters to work areas so they can only clock in
-          inside those radii.
+          Supervisors can add and manage promoters and clients, including correcting a phone number
+          if it was captured wrong. Only admins can add or change supervisor and admin accounts.
+          Assign promoters to work areas so they can only clock in inside those radii.
         </p>
       </div>
 
@@ -663,6 +679,7 @@ export default function OpsUsersPage(): ReactElement {
                 <div>
                   <p className="font-medium text-foreground">{row.fullName}</p>
                   <p className="text-xs capitalize text-muted-foreground">{row.role}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{row.phone}</p>
                   <p className="mt-2 font-mono text-[11px] text-foreground">
                     {accessCodeLabel(row.uniqueCode)}
                   </p>
@@ -742,6 +759,27 @@ export default function OpsUsersPage(): ReactElement {
                   }}
                   required
                 />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground" htmlFor="eu-phone">
+                  Phone
+                </label>
+                <input
+                  id="eu-phone"
+                  className={inputClass}
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  value={editPhone}
+                  onChange={(e) => {
+                    setEditPhone(e.target.value);
+                  }}
+                  placeholder="0244123456"
+                  required
+                />
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  They sign in with this number and the same access code.
+                </p>
               </div>
               <div>
                 <label className="text-xs font-medium text-muted-foreground" htmlFor="eu-email">

@@ -101,13 +101,18 @@ export class AdminUserController {
     operationId: "AdminUser_updateUser",
     summary: "Update user",
     description:
-      "Partial update. Supervisors may edit promoters and clients only. Only admins may assign supervisor or admin roles."
+      "Partial update. Supervisors may edit promoters and clients only. Only admins may assign supervisor or admin roles. Phone can be corrected; the access code stays the same."
   })
   @ApiBody({
     schema: {
       type: "object",
       properties: {
         fullName: { type: "string" },
+        phone: {
+          type: "string",
+          example: "0244123456",
+          description: "Corrected mobile number. They sign in with this number and the same access code."
+        },
         email: {
           type: "string",
           format: "email",
