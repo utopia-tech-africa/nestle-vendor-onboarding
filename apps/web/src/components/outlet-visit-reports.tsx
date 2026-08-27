@@ -34,6 +34,16 @@ const boolLabel = (value: boolean | null | undefined): string => {
   return "";
 };
 
+const visitKindLabel = (kind: OutletVisitRecord["kind"]): string =>
+  kind === "items" ? "Items given" : "Onboarding";
+
+const itemsGivenSummary = (visit: OutletVisitRecord): string => {
+  const names = (visit.itemIssuances ?? [])
+    .map((row) => row.item?.name)
+    .filter((name): name is string => name != null && name.length > 0);
+  return names.join(", ");
+};
+
 const questionnaireSummary = (visit: OutletVisitRecord): string => {
   const answers = visit.questionnaireResponses?.flatMap((r) => r.answers) ?? [];
   if (answers.length === 0) return "";
@@ -69,6 +79,7 @@ const competitorSummary = (visit: OutletVisitRecord): string => {
 
 const visitToExcelRow = (visit: OutletVisitRecord, hidePersonalContact: boolean) => ({
   checkedInAt: visit.checkedInAt,
+  kind: visitKindLabel(visit.kind),
   vendorId: visit.outlet?.vendorCode ?? "",
   vendorName: visit.outlet?.name ?? visit.outletId,
   vendorType: visit.outlet ? vendorTypeDisplayLabel(visit.outlet) : "",
@@ -96,6 +107,7 @@ const visitToExcelRow = (visit: OutletVisitRecord, hidePersonalContact: boolean)
   outOfStock: boolLabel(visit.outOfStock),
   competitors: competitorSummary(visit),
   questionnaire: questionnaireSummary(visit),
+  itemsGiven: itemsGivenSummary(visit),
   notes: visit.consumerEngagementNotes ?? ""
 });
 
@@ -377,7 +389,7 @@ export function OutletVisitReports({
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div>
                       <p className="font-medium text-foreground">
-                        {visit.outlet?.name ?? visit.outletId} ·{" "}
+                        {visit.outlet?.name ?? visit.outletId} · {visitKindLabel(visit.kind)} ·{" "}
                         {new Date(visit.checkedInAt).toLocaleString()}
                       </p>
                       <p className="mt-1 text-xs text-muted-foreground">
@@ -451,6 +463,17 @@ export function OutletVisitReports({
                           </span>{" "}
                           {visit.incompleteReasons}
                         </p>
+                      ) : null}
+
+                      {(visit.itemIssuances?.length ?? 0) > 0 ? (
+                        <div>
+                          <p className="font-medium text-foreground">Items given</p>
+                          <p className="mt-0.5 text-muted-foreground">
+                            {itemsGivenSummary(visit) || "None recorded on this visit"}
+                          </p>
+                        </div>
+                      ) : visit.kind === "items" ? (
+                        <p className="text-muted-foreground">No new items ticked on this visit.</p>
                       ) : null}
 
                       <div>

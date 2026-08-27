@@ -126,8 +126,9 @@ export class NestleDashboardController {
             : {})
         }
       }),
+      // Add vendor creates an onboarding visit; that counts under vendors onboarded, not here.
       this.prisma.outletVisit.count({
-        where: { checkedInAt: { gte: startOfToday }, ...visitWhere }
+        where: { checkedInAt: { gte: startOfToday }, kind: "items", ...visitWhere }
       }),
       this.prisma.questionnaireResponse.count({
         where: {

@@ -86,6 +86,23 @@ export type CreateOutletPayload = {
   isActive?: boolean;
 } & OutletProfileFields;
 
+export type VisitIntelPayload = {
+  nestleProductAvailable?: boolean;
+  nestleProducts?: string[];
+  productPlacementNotes?: string;
+  shelfVisibilityNotes?: string;
+  posMaterialsPresent?: boolean;
+  promotionalMaterialsPresent?: boolean;
+  stockLevelNotes?: string;
+  outOfStock?: boolean;
+  competitors?: CompetitorObservationInput[];
+  questionnaire?: {
+    questionnaireId: string;
+    answers: QuestionnaireAnswerInput[];
+  };
+  issuedItemIds?: string[];
+};
+
 /** Field promoter on-site vendor creation (GPS required). */
 export type CreateFieldOutletPayload = {
   name: string;
@@ -102,7 +119,8 @@ export type CreateFieldOutletPayload = {
   locationArea?: string;
   yearsInBusiness?: number;
   photos?: OutletVisitPhotoInput[];
-} & OutletProfileFields;
+} & OutletProfileFields &
+  VisitIntelPayload;
 
 export type UpdateOutletPayload = Partial<CreateOutletPayload>;
 
@@ -144,8 +162,11 @@ export type QuestionnaireAnswerInput = {
   valueText?: string;
 };
 
+export type OutletVisitKind = "onboarding" | "items";
+
 export type CreateOutletVisitPayload = {
   outletId: string;
+  kind?: OutletVisitKind;
   latitude: number;
   longitude: number;
   outletPhotoCloudinaryPublicId?: string;
@@ -157,27 +178,15 @@ export type CreateOutletVisitPayload = {
   footfallPeakPeriods?: string;
   trafficCategory?: TrafficCategory;
   footfallManualCount?: number;
-  nestleProductAvailable?: boolean;
-  nestleProducts?: string[];
-  productPlacementNotes?: string;
-  shelfVisibilityNotes?: string;
-  posMaterialsPresent?: boolean;
-  promotionalMaterialsPresent?: boolean;
-  stockLevelNotes?: string;
-  outOfStock?: boolean;
-  competitors?: CompetitorObservationInput[];
-  questionnaire?: {
-    questionnaireId: string;
-    answers: QuestionnaireAnswerInput[];
-  };
   activationId?: string;
   saleItems?: { productId: string; quantity: number; sellingPrice: number }[];
-};
+} & VisitIntelPayload;
 
 export type OutletVisitRecord = {
   id: string;
   outletId: string;
   userId: string;
+  kind?: OutletVisitKind;
   latitude: number;
   longitude: number;
   hasOutletPhoto: boolean;
@@ -218,6 +227,12 @@ export type OutletVisitRecord = {
       valueText: string | null;
       question?: { prompt: string; type: string } | null;
     }[];
+  }[];
+  itemIssuances?: {
+    id: string;
+    itemId: string;
+    issuedAt: string;
+    item?: { id: string; name: string } | null;
   }[];
   outlet?: {
     id: string;

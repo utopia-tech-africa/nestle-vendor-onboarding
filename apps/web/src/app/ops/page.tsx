@@ -154,7 +154,7 @@ export default function OpsOverviewPage(): ReactElement {
     const kpiRows = [
       { metric: "Vendors onboarded", value: data.vendorsOnboarded },
       { metric: "Active promoters", value: data.activePromoters },
-      { metric: "Daily visits", value: data.dailyVisits },
+      { metric: "Items given (today)", value: data.dailyVisits },
       { metric: "Completed questionnaires", value: data.completedQuestionnaires },
       {
         metric: "Visibility score avg %",
@@ -303,7 +303,7 @@ export default function OpsOverviewPage(): ReactElement {
       <section className={`${shellCard} grid grid-cols-2 gap-1 p-3 sm:grid-cols-3 lg:grid-cols-5`}>
         <StatCell label="Vendors onboarded" value={data?.vendorsOnboarded ?? "—"} loading={loading} />
         <StatCell label="Active promoters" value={data?.activePromoters ?? "—"} loading={loading} />
-        <StatCell label="Daily visits" value={data?.dailyVisits ?? "—"} loading={loading} />
+        <StatCell label="Items given (today)" value={data?.dailyVisits ?? "—"} loading={loading} />
         <StatCell
           label="Questionnaires"
           value={data?.completedQuestionnaires ?? "—"}

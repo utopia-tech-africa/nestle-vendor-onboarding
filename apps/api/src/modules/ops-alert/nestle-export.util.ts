@@ -62,7 +62,7 @@ export const buildNestleOverviewPdf = async (
     "Programme KPIs",
     `- Vendors onboarded: ${String(payload.vendorsOnboarded)}`,
     `- Active promoters: ${String(payload.activePromoters)}`,
-    `- Visits today (UTC): ${String(payload.dailyVisits)}`,
+    `- Items given today (UTC): ${String(payload.dailyVisits)}`,
     `- Completed questionnaires: ${String(payload.completedQuestionnaires)}`,
     `- Incomplete visits: ${String(payload.incompleteVisits)}`,
     `- Competitor reports: ${String(payload.competitorReports)}`,

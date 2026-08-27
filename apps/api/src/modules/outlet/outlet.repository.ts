@@ -5,6 +5,7 @@ import type {
   AverageDailySalesBracket,
   EmployeeCountBracket,
   Gender,
+  OutletVisitKind,
   Prisma,
   TrafficCategory,
   VendorRole,
@@ -17,6 +18,7 @@ const visitListSelect = {
   id: true,
   outletId: true,
   userId: true,
+  kind: true,
   latitude: true,
   longitude: true,
   hasOutletPhoto: true,
@@ -73,6 +75,14 @@ const visitListSelect = {
           question: { select: { prompt: true, type: true } }
         }
       }
+    }
+  },
+  itemIssuances: {
+    select: {
+      id: true,
+      itemId: true,
+      issuedAt: true,
+      item: { select: { id: true, name: true } }
     }
   }
 } satisfies Prisma.OutletVisitSelect;
@@ -322,11 +332,15 @@ export class OutletRepository {
     });
   }
 
-  public async create(data: OutletWriteData) {
+  public runTransaction<T>(fn: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+    return this.prisma.$transaction(fn);
+  }
+
+  public async create(data: OutletWriteData, tx?: Prisma.TransactionClient) {
     const { onboardingPhotos, ...outletFields } = data;
-    return this.prisma.$transaction(async (tx) => {
-      const vendorCode = await this.allocateVendorCode(tx, outletFields.regionId ?? null);
-      return tx.outlet.create({
+    const run = async (client: Prisma.TransactionClient) => {
+      const vendorCode = await this.allocateVendorCode(client, outletFields.regionId ?? null);
+      return client.outlet.create({
         data: {
           ...outletFields,
           vendorCode,
@@ -346,7 +360,11 @@ export class OutletRepository {
         },
         select: outletSelect
       });
-    });
+    };
+    if (tx !== undefined) {
+      return run(tx);
+    }
+    return this.prisma.$transaction(run);
   }
 
   private async allocateVendorCode(
@@ -378,6 +396,7 @@ export class OutletRepository {
     data: {
       outletId: string;
       userId: string;
+      kind?: OutletVisitKind;
       latitude: number;
       longitude: number;
       outletPhotoMimeType: string | null;
@@ -616,6 +635,7 @@ export class OutletRepository {
     itemId: string;
     issuedByUserId: string;
     notes: string | null;
+    visitId?: string | null;
   }) {
     return this.prisma.outletItemIssuance.create({
       data,
@@ -626,6 +646,24 @@ export class OutletRepository {
         notes: true,
         issuedBy: { select: { id: true, fullName: true } }
       }
+    });
+  }
+
+  public createItemIssuances(
+    data: {
+      outletId: string;
+      itemId: string;
+      issuedByUserId: string;
+      visitId?: string | null;
+    }[],
+    tx?: Prisma.TransactionClient
+  ) {
+    if (data.length === 0) {
+      return Promise.resolve({ count: 0 });
+    }
+    return this.db(tx).outletItemIssuance.createMany({
+      data,
+      skipDuplicates: true
     });
   }
 

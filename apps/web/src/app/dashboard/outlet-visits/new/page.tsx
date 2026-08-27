@@ -25,7 +25,9 @@ import { requestCurrentPosition } from "@/lib/geolocation/request-current-positi
 import { FALLBACK_FIELD_CATALOGS } from "@/lib/outlet/field-catalogs";
 import {
   createFieldOutlet,
+  getActiveQuestionnaire,
   getFieldCatalogs,
+  listDistributionItems,
   listFieldRegions,
   type CreateFieldOutletPayload,
   type OutletRecord,
@@ -34,16 +36,25 @@ import {
 import { toast } from "@/lib/toast";
 
 import {
+  CompetitorActivityFields,
+  ItemsGivenFields,
+  NestleVisibilityFields,
+  QuestionnaireFields
+} from "../field-intel-sections";
+import {
+  activeQuestionnaireKey,
+  blankCompetitor,
   blankVendorForm,
   fieldCatalogsQueryKey,
   fieldOutletsQueryKey,
   fieldRegionsQueryKey,
   fieldVendorInputClass,
   fieldVendorPageClass,
-  fieldVendorVisitHref,
   optionalProfilePayload,
   PHOTO_CATEGORIES,
   SELECT_NONE,
+  visitIntelPayload,
+  type CompetitorDraft,
   type NewVendorFormState
 } from "../field-vendor-shared";
 
@@ -60,6 +71,19 @@ export default function RegisterVendorPage(): ReactElement {
   const [photos, setPhotos] = useState<Partial<Record<VisitPhotoCategory, string[]>>>({});
   const [vendorError, setVendorError] = useState<string | null>(null);
   const [isCapturingVendorLocation, setIsCapturingVendorLocation] = useState(false);
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [nestleProductAvailable, setNestleProductAvailable] = useState<boolean | null>(null);
+  const [nestleProducts, setNestleProducts] = useState<string[]>([]);
+  const [productPlacementNotes, setProductPlacementNotes] = useState("");
+  const [shelfVisibilityNotes, setShelfVisibilityNotes] = useState("");
+  const [posMaterialsPresent, setPosMaterialsPresent] = useState<boolean | null>(null);
+  const [promotionalMaterialsPresent, setPromotionalMaterialsPresent] = useState<boolean | null>(
+    null
+  );
+  const [stockLevelNotes, setStockLevelNotes] = useState("");
+  const [outOfStock, setOutOfStock] = useState<boolean | null>(null);
+  const [competitors, setCompetitors] = useState<CompetitorDraft[]>([blankCompetitor()]);
+  const [issuedItemIds, setIssuedItemIds] = useState<string[]>([]);
 
   useEffect(() => {
     if (userRegionId) {
@@ -83,13 +107,42 @@ export default function RegisterVendorPage(): ReactElement {
   });
   const catalogs = catalogsQuery.data ?? FALLBACK_FIELD_CATALOGS;
 
+  const questionnaireQuery = useQuery({
+    queryKey: activeQuestionnaireKey,
+    queryFn: async () => getActiveQuestionnaire(accessToken ?? ""),
+    enabled: accessToken !== null,
+    staleTime: 5 * 60 * 1000
+  });
+
+  const itemsQuery = useQuery({
+    queryKey: ["distribution", "items", "active"] as const,
+    queryFn: async () => listDistributionItems(accessToken ?? "", false),
+    enabled: accessToken !== null
+  });
+
   const createVendorMutation = useMutation({
     mutationFn: async (payload: CreateFieldOutletPayload) =>
       createFieldOutlet(accessToken ?? "", payload)
   });
 
-  const goToVisit = (outletId: string): void => {
-    router.push(fieldVendorVisitHref(outletId));
+  const goToVendors = (): void => {
+    router.push("/dashboard/outlet-visits");
+  };
+
+  const resetOnboardingForm = (): void => {
+    setVendorForm(blankVendorForm(userRegionId ?? ""));
+    setPhotos({});
+    setAnswers({});
+    setNestleProductAvailable(null);
+    setNestleProducts([]);
+    setProductPlacementNotes("");
+    setShelfVisibilityNotes("");
+    setPosMaterialsPresent(null);
+    setPromotionalMaterialsPresent(null);
+    setStockLevelNotes("");
+    setOutOfStock(null);
+    setCompetitors([blankCompetitor()]);
+    setIssuedItemIds([]);
   };
 
   const handleCreateVendor = (event: SyntheticEvent<HTMLFormElement>): void => {
@@ -107,6 +160,17 @@ export default function RegisterVendorPage(): ReactElement {
       setVendorError("Vendor type and seller type are required.");
       return;
     }
+    const questionnaire = questionnaireQuery.data;
+    const missingRequired = questionnaire?.questions.find((question) => {
+      if (!question.required) {
+        return false;
+      }
+      return (answers[question.id]?.trim() ?? "").length === 0;
+    });
+    if (missingRequired !== undefined) {
+      setVendorError(`Answer required: ${missingRequired.prompt}`);
+      return;
+    }
     setIsCapturingVendorLocation(true);
     void (async () => {
       const position = await requestCurrentPosition();
@@ -121,9 +185,6 @@ export default function RegisterVendorPage(): ReactElement {
       const onboardingPhotos = PHOTO_CATEGORIES.flatMap((cat) =>
         (photos[cat.id] ?? []).map((photoBase64) => ({ category: cat.id, photoBase64 }))
       );
-      const clearPhotos = (): void => {
-        setPhotos({});
-      };
       const payload: CreateFieldOutletPayload = {
         name: vendorForm.name.trim(),
         vendorTypeGroup: vendorForm.vendorTypeGroup.trim() || "Table top",
@@ -139,16 +200,29 @@ export default function RegisterVendorPage(): ReactElement {
           : {}),
         ...(vendorForm.regionId ? { regionId: vendorForm.regionId } : {}),
         ...(years !== undefined && Number.isFinite(years) ? { yearsInBusiness: years } : {}),
-        ...(onboardingPhotos.length > 0 ? { photos: onboardingPhotos } : {})
+        ...(onboardingPhotos.length > 0 ? { photos: onboardingPhotos } : {}),
+        ...visitIntelPayload({
+          nestleProductAvailable,
+          nestleProducts,
+          productPlacementNotes,
+          shelfVisibilityNotes,
+          posMaterialsPresent,
+          promotionalMaterialsPresent,
+          stockLevelNotes,
+          outOfStock,
+          competitors,
+          questionnaire,
+          answers,
+          issuedItemIds
+        })
       };
 
       if (!online) {
         try {
-          const pendingId = await enqueueVendorCreateForOfflineSync(payload);
-          toast.success("Vendor saved offline. Record the visit next — it will sync later.");
-          setVendorForm(blankVendorForm(userRegionId ?? ""));
-          clearPhotos();
-          goToVisit(pendingId);
+          await enqueueVendorCreateForOfflineSync(payload);
+          toast.success("Vendor saved offline. It will sync when you are back online.");
+          resetOnboardingForm();
+          goToVendors();
         } catch {
           setVendorError("Could not save vendor offline.");
         }
@@ -159,25 +233,23 @@ export default function RegisterVendorPage(): ReactElement {
         onSuccess: (created) => {
           toast.success(
             created.vendorCode
-              ? `Vendor onboarded as ${created.vendorCode}. Record the visit next.`
-              : "Vendor onboarded. Record the visit next."
+              ? `Vendor onboarded as ${created.vendorCode}.`
+              : "Vendor onboarded."
           );
-          setVendorForm(blankVendorForm(userRegionId ?? ""));
-          clearPhotos();
+          resetOnboardingForm();
           queryClient.setQueryData(fieldOutletsQueryKey, (previous: OutletRecord[] | undefined) => {
             if (previous === undefined) return [created];
             if (previous.some((row) => row.id === created.id)) return previous;
             return [created, ...previous];
           });
-          goToVisit(created.id);
+          goToVendors();
         },
         onError: (error: unknown) => {
           if (error instanceof ApiError && error.status === 0) {
-            void enqueueVendorCreateForOfflineSync(payload).then((pendingId) => {
-              toast.success("Vendor saved offline. Record the visit next.");
-              setVendorForm(blankVendorForm(userRegionId ?? ""));
-              clearPhotos();
-              goToVisit(pendingId);
+            void enqueueVendorCreateForOfflineSync(payload).then(() => {
+              toast.success("Vendor saved offline. It will sync when you are back online.");
+              resetOnboardingForm();
+              goToVendors();
             });
             return;
           }
@@ -201,7 +273,8 @@ export default function RegisterVendorPage(): ReactElement {
         </p>
         <h1 className="mt-2 text-xl font-semibold tracking-tight sm:text-2xl">Add vendor</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Register a koko vendor with GPS and photos. You can record a visit on the next screen.
+          Capture the vendor profile, market questions, stall intel, photos, and items given in one
+          step.
         </p>
       </div>
 
@@ -393,6 +466,55 @@ export default function RegisterVendorPage(): ReactElement {
               />
             ))}
           </div>
+          {questionnaireQuery.data ? (
+            <QuestionnaireFields
+              title={questionnaireQuery.data.title}
+              questions={questionnaireQuery.data.questions}
+              answers={answers}
+              onAnswer={(questionId, value) =>
+                setAnswers((prev) => ({ ...prev, [questionId]: value }))
+              }
+            />
+          ) : (
+            <p className="text-xs text-muted-foreground sm:col-span-2">
+              No active questionnaire configured. Ops can add one under Questionnaires.
+            </p>
+          )}
+          <NestleVisibilityFields
+            catalogs={catalogs}
+            nestleProductAvailable={nestleProductAvailable}
+            nestleProducts={nestleProducts}
+            outOfStock={outOfStock}
+            posMaterialsPresent={posMaterialsPresent}
+            promotionalMaterialsPresent={promotionalMaterialsPresent}
+            productPlacementNotes={productPlacementNotes}
+            shelfVisibilityNotes={shelfVisibilityNotes}
+            stockLevelNotes={stockLevelNotes}
+            onChange={{
+              nestleProductAvailable: setNestleProductAvailable,
+              nestleProducts: setNestleProducts,
+              outOfStock: setOutOfStock,
+              posMaterialsPresent: setPosMaterialsPresent,
+              promotionalMaterialsPresent: setPromotionalMaterialsPresent,
+              productPlacementNotes: setProductPlacementNotes,
+              shelfVisibilityNotes: setShelfVisibilityNotes,
+              stockLevelNotes: setStockLevelNotes
+            }}
+          />
+          <CompetitorActivityFields
+            catalogs={catalogs}
+            competitors={competitors}
+            onChange={setCompetitors}
+          />
+          <ItemsGivenFields
+            items={itemsQuery.data ?? []}
+            selectedIds={issuedItemIds}
+            onToggle={(itemId, given) => {
+              setIssuedItemIds((prev) =>
+                given ? [...prev, itemId] : prev.filter((id) => id !== itemId)
+              );
+            }}
+          />
           {vendorError ? (
             <p className="text-sm text-destructive sm:col-span-2">{vendorError}</p>
           ) : null}
@@ -406,7 +528,7 @@ export default function RegisterVendorPage(): ReactElement {
                 ? "Getting GPS…"
                 : createVendorMutation.isPending
                   ? "Saving…"
-                  : "Register with GPS"}
+                  : "Save with GPS"}
             </button>
           </div>
         </form>

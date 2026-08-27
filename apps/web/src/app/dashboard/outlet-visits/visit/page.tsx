@@ -3,10 +3,9 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Suspense, type ReactElement, type SyntheticEvent, useMemo, useState } from "react";
+import { Suspense, type ReactElement, type SyntheticEvent, useEffect, useMemo, useState } from "react";
 
 import { BoneyardInlineFallback } from "@/components/boneyard/boneyard-inline-fallback";
-import { CatalogCheckboxGroup, CatalogSelect } from "@/components/catalog-fields";
 import { OutletMapPreview } from "@/components/outlet-map-preview";
 import {
   Select,
@@ -19,34 +18,26 @@ import { useNetworkOnline } from "@/hooks/use-network-online";
 import { formatApiErrorMessage } from "@/lib/api/format-api-error";
 import { ApiError } from "@/lib/api/problem-details";
 import { useAuthStore } from "@/lib/auth/auth-store";
-import { calmMutedLinkClass, calmPrimaryButtonClass } from "@/lib/calm-ui";
+import { calmMutedLinkClass, calmPrimaryButtonClass, calmPrimaryButtonInlineClass } from "@/lib/calm-ui";
 import { enqueueOutletVisitForOfflineSync } from "@/lib/field/field-offline-enqueue";
 import { requestCurrentPosition } from "@/lib/geolocation/request-current-position";
-import { FALLBACK_FIELD_CATALOGS, SELLER_TYPE_QUESTION_PROMPT, VENDOR_TYPE_QUESTION_PROMPT } from "@/lib/outlet/field-catalogs";
 import {
   createOutletVisit,
-  getActiveQuestionnaire,
-  getFieldCatalogs,
+  getVendorItemsByOutletId,
+  listDistributionItems,
+  lookupVendorItems,
   vendorLabel,
-  type CreateOutletVisitPayload
+  type CreateOutletVisitPayload,
+  type VendorItemLookup,
+  type VendorItemMatch
 } from "@/lib/outlet/outlet-api";
 import { toast } from "@/lib/toast";
 
-import {
-  SELECT_NONE,
-  activeQuestionnaireKey,
-  blankCompetitor,
-  fieldCatalogsQueryKey,
-  fieldVendorInputClass,
-  fieldVendorPageClass,
-  parseMultiChoiceAnswer,
-  parseQuestionOptions,
-  serializeMultiChoiceAnswer,
-  type CompetitorDraft
-} from "../field-vendor-shared";
+import { ItemsGivenFields } from "../field-intel-sections";
+import { SELECT_NONE, fieldVendorInputClass, fieldVendorPageClass } from "../field-vendor-shared";
 import { useFieldVendorOptions } from "../use-field-vendor-options";
 
-function RecordVendorVisitPageInner(): ReactElement {
+function RecordItemsVisitPageInner(): ReactElement {
   const searchParams = useSearchParams();
   const accessToken = useAuthStore((state) => state.accessToken);
   const online = useNetworkOnline();
@@ -60,153 +51,87 @@ function RecordVendorVisitPageInner(): ReactElement {
     setPickedOutletId(null);
   }
   const outletId = pickedOutletId ?? outletIdFromUrl;
+  const [phoneInput, setPhoneInput] = useState("");
+  const [lookup, setLookup] = useState<VendorItemLookup | null>(null);
+  const [matches, setMatches] = useState<VendorItemMatch[]>([]);
+  const [lookupError, setLookupError] = useState<string | null>(null);
+  const [issuedItemIds, setIssuedItemIds] = useState<string[]>([]);
   const [isCapturingVisitLocation, setIsCapturingVisitLocation] = useState(false);
-  const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [nestleProductAvailable, setNestleProductAvailable] = useState<boolean | null>(null);
-  const [nestleProducts, setNestleProducts] = useState<string[]>([]);
-  const [productPlacementNotes, setProductPlacementNotes] = useState("");
-  const [shelfVisibilityNotes, setShelfVisibilityNotes] = useState("");
-  const [posMaterialsPresent, setPosMaterialsPresent] = useState<boolean | null>(null);
-  const [promotionalMaterialsPresent, setPromotionalMaterialsPresent] = useState<boolean | null>(
-    null
-  );
-  const [stockLevelNotes, setStockLevelNotes] = useState("");
-  const [outOfStock, setOutOfStock] = useState<boolean | null>(null);
-  const [competitors, setCompetitors] = useState<CompetitorDraft[]>([blankCompetitor()]);
 
-  const catalogsQuery = useQuery({
-    queryKey: fieldCatalogsQueryKey,
-    queryFn: async () => getFieldCatalogs(accessToken ?? ""),
-    enabled: accessToken !== null,
-    staleTime: 60 * 60 * 1000,
-    placeholderData: FALLBACK_FIELD_CATALOGS
+  const itemsQuery = useQuery({
+    queryKey: ["distribution", "items", "active"] as const,
+    queryFn: async () => listDistributionItems(accessToken ?? "", false),
+    enabled: accessToken !== null
   });
-  const catalogs = catalogsQuery.data ?? FALLBACK_FIELD_CATALOGS;
-
-  const questionnaireQuery = useQuery({
-    queryKey: activeQuestionnaireKey,
-    queryFn: async () => getActiveQuestionnaire(accessToken ?? ""),
-    enabled: accessToken !== null,
-    staleTime: 5 * 60 * 1000
-  });
-
-  const vendorTypeQuestionId = useMemo(
-    () =>
-      questionnaireQuery.data?.questions.find((question) => question.prompt === VENDOR_TYPE_QUESTION_PROMPT)
-        ?.id,
-    [questionnaireQuery.data]
-  );
-  const sellerTypeQuestionId = useMemo(
-    () =>
-      questionnaireQuery.data?.questions.find((question) => question.prompt === SELLER_TYPE_QUESTION_PROMPT)
-        ?.id,
-    [questionnaireQuery.data]
-  );
-  const selectedVendorTypeAnswer =
-    vendorTypeQuestionId !== undefined ? (answers[vendorTypeQuestionId] ?? "") : "";
 
   const selectedOutlet = useMemo(() => {
     if (!outletId) return null;
     return vendorOptions.find((row) => row.id === outletId) ?? null;
   }, [outletId, vendorOptions]);
 
-  const selectedVendorLabel = selectedOutlet
-    ? `${vendorLabel(selectedOutlet)}${selectedOutlet.locationArea ? ` · ${selectedOutlet.locationArea}` : ""}`
-    : null;
+  const applyLookup = (data: VendorItemLookup): void => {
+    setLookup(data);
+    setIssuedItemIds(data.items.filter((item) => item.given).map((item) => item.id));
+    setLookupError(null);
+    setPickedOutletId(data.outlet.id);
+  };
+
+  const lookupMutation = useMutation({
+    mutationFn: async (query: string) => lookupVendorItems(accessToken ?? "", query),
+    onSuccess: (data) => {
+      setMatches(data.matches);
+      if (data.result !== null) {
+        applyLookup(data.result);
+        return;
+      }
+      setLookup(null);
+      setLookupError(null);
+    },
+    onError: (error: unknown) => {
+      setLookup(null);
+      setMatches([]);
+      setLookupError(formatApiErrorMessage(error, "Could not find that vendor."));
+    }
+  });
+
+  const loadByIdMutation = useMutation({
+    mutationFn: async (id: string) => getVendorItemsByOutletId(accessToken ?? "", id),
+    onSuccess: applyLookup,
+    onError: (error: unknown) => {
+      toast.error(formatApiErrorMessage(error, "Could not load that vendor."));
+    }
+  });
+
+  useEffect(() => {
+    if (accessToken === null || outletIdFromUrl.length === 0) {
+      return;
+    }
+    loadByIdMutation.mutate(outletIdFromUrl);
+    // Load once when the URL vendor id is set.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accessToken, outletIdFromUrl]);
 
   const createVisitMutation = useMutation({
     mutationFn: async (payload: CreateOutletVisitPayload) =>
       createOutletVisit(accessToken ?? "", payload)
   });
 
-  const resetVisitForm = (): void => {
-    setAnswers({});
-    setNestleProductAvailable(null);
-    setNestleProducts([]);
-    setProductPlacementNotes("");
-    setShelfVisibilityNotes("");
-    setPosMaterialsPresent(null);
-    setPromotionalMaterialsPresent(null);
-    setStockLevelNotes("");
-    setOutOfStock(null);
-    setCompetitors([blankCompetitor()]);
-  };
+  const resolvedOutletId = lookup?.outlet.id ?? (outletId.length > 0 ? outletId : "");
 
-  const buildVisitPayload = (
-    targetOutletId: string,
-    latitude: number,
-    longitude: number
-  ): CreateOutletVisitPayload => {
-    const questionnaire = questionnaireQuery.data;
-    const questionnairePayload =
-      questionnaire !== null && questionnaire !== undefined
-        ? {
-            questionnaireId: questionnaire.id,
-            answers: questionnaire.questions.map((q) => ({
-              questionId: q.id,
-              ...(answers[q.id]?.trim() ? { valueText: answers[q.id].trim() } : {})
-            }))
-          }
-        : undefined;
-
-    const competitorPayload = competitors
-      .filter((c) => c.brandName.trim().length > 0)
-      .map((c) => ({
-        brandName: c.brandName.trim(),
-        ...(c.brandName === "Other" && c.brandNameOther?.trim()
-          ? { brandNameOther: c.brandNameOther.trim() }
-          : {}),
-        ...(c.products && c.products.length > 0 ? { products: c.products } : {}),
-        ...(c.pricingNotes?.trim() ? { pricingNotes: c.pricingNotes.trim() } : {}),
-        ...(c.promotionsNotes?.trim() ? { promotionsNotes: c.promotionsNotes.trim() } : {}),
-        ...(c.discountsNotes?.trim() ? { discountsNotes: c.discountsNotes.trim() } : {}),
-        ...(c.newLaunchesNotes?.trim() ? { newLaunchesNotes: c.newLaunchesNotes.trim() } : {}),
-        ...(c.displayQualityNotes?.trim()
-          ? { displayQualityNotes: c.displayQualityNotes.trim() }
-          : {}),
-        ...(c.marketObservations?.trim()
-          ? { marketObservations: c.marketObservations.trim() }
-          : {})
-      }));
-
-    return {
-      outletId: targetOutletId,
-      latitude,
-      longitude,
-      ...(nestleProductAvailable !== null || nestleProducts.length > 0
-        ? { nestleProductAvailable: nestleProductAvailable === true || nestleProducts.length > 0 }
-        : {}),
-      ...(nestleProducts.length > 0 ? { nestleProducts } : {}),
-      ...(productPlacementNotes.trim()
-        ? { productPlacementNotes: productPlacementNotes.trim() }
-        : {}),
-      ...(shelfVisibilityNotes.trim()
-        ? { shelfVisibilityNotes: shelfVisibilityNotes.trim() }
-        : {}),
-      ...(posMaterialsPresent !== null ? { posMaterialsPresent } : {}),
-      ...(promotionalMaterialsPresent !== null ? { promotionalMaterialsPresent } : {}),
-      ...(stockLevelNotes.trim() ? { stockLevelNotes: stockLevelNotes.trim() } : {}),
-      ...(outOfStock !== null ? { outOfStock } : {}),
-      ...(competitorPayload.length > 0 ? { competitors: competitorPayload } : {}),
-      ...(questionnairePayload !== undefined ? { questionnaire: questionnairePayload } : {})
-    };
+  const onPhoneLookup = (event: SyntheticEvent<HTMLFormElement>): void => {
+    event.preventDefault();
+    const query = phoneInput.trim();
+    if (query.length === 0) {
+      setLookupError("Enter a phone number (for example 0244123456).");
+      return;
+    }
+    lookupMutation.mutate(query);
   };
 
   const handleSubmitVisit = (event: SyntheticEvent<HTMLFormElement>): void => {
     event.preventDefault();
-    if (!outletId) {
+    if (resolvedOutletId.length === 0) {
       toast.error("Select a vendor first.");
-      return;
-    }
-    const questionnaire = questionnaireQuery.data;
-    const missingRequired = questionnaire?.questions.find((question) => {
-      if (!question.required) {
-        return false;
-      }
-      return (answers[question.id]?.trim() ?? "").length === 0;
-    });
-    if (missingRequired !== undefined) {
-      toast.error(`Answer required: ${missingRequired.prompt}`);
       return;
     }
     setIsCapturingVisitLocation(true);
@@ -217,13 +142,18 @@ function RecordVendorVisitPageInner(): ReactElement {
         toast.error(position.message);
         return;
       }
-      const payload = buildVisitPayload(outletId, position.latitude, position.longitude);
+      const payload: CreateOutletVisitPayload = {
+        outletId: resolvedOutletId,
+        kind: "items",
+        latitude: position.latitude,
+        longitude: position.longitude,
+        ...(issuedItemIds.length > 0 ? { issuedItemIds } : {})
+      };
 
       if (!online) {
         try {
           await enqueueOutletVisitForOfflineSync(payload);
-          toast.success("Visit saved offline. It will sync when you are back online.");
-          resetVisitForm();
+          toast.success("Items visit saved offline. It will sync when you are back online.");
         } catch {
           toast.error("Could not save visit offline.");
         }
@@ -232,18 +162,19 @@ function RecordVendorVisitPageInner(): ReactElement {
 
       createVisitMutation.mutate(payload, {
         onSuccess: () => {
-          toast.success("Vendor visit submitted.");
-          resetVisitForm();
+          toast.success("Items given recorded.");
+          if (resolvedOutletId.length > 0) {
+            loadByIdMutation.mutate(resolvedOutletId);
+          }
         },
         onError: (error: unknown) => {
           if (error instanceof ApiError && error.status === 0) {
             void enqueueOutletVisitForOfflineSync(payload).then(() => {
-              toast.success("Visit saved offline. It will sync when you are back online.");
-              resetVisitForm();
+              toast.success("Items visit saved offline. It will sync when you are back online.");
             });
             return;
           }
-          toast.error(formatApiErrorMessage(error, "Could not submit visit."));
+          toast.error(formatApiErrorMessage(error, "Could not record items given."));
         }
       });
     })();
@@ -253,6 +184,14 @@ function RecordVendorVisitPageInner(): ReactElement {
     return <BoneyardInlineFallback name="field-record-visit-auth" className="min-h-32" />;
   }
 
+  const selectedVendorLabel = selectedOutlet
+    ? `${vendorLabel(selectedOutlet)}${selectedOutlet.locationArea ? ` · ${selectedOutlet.locationArea}` : ""}`
+    : lookup
+      ? vendorLabel(lookup.outlet)
+      : null;
+  const showMatchPicker = lookup === null && matches.length > 1;
+  const catalogItems = lookup?.items ?? itemsQuery.data ?? [];
+
   return (
     <div className={fieldVendorPageClass}>
       <div>
@@ -261,11 +200,61 @@ function RecordVendorVisitPageInner(): ReactElement {
             Back to vendors
           </Link>
         </p>
-        <h1 className="mt-2 text-xl font-semibold tracking-tight sm:text-2xl">Record visit</h1>
+        <h1 className="mt-2 text-xl font-semibold tracking-tight sm:text-2xl">Items given</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Capture the questionnaire, Nestlé visibility, and competitor intel.
+          Look up a vendor by phone or pick her from the list, tick the items you have given her, then
+          save with GPS.
         </p>
       </div>
+
+      <section className="rounded-xl border border-border bg-card p-4 shadow-sm sm:p-6">
+        <form className="flex flex-col gap-4 sm:flex-row sm:items-end" onSubmit={onPhoneLookup}>
+          <label className="min-w-0 flex-1 text-xs font-medium text-muted-foreground">
+            Phone number
+            <input
+              className={fieldVendorInputClass}
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel"
+              value={phoneInput}
+              onChange={(event) => {
+                setPhoneInput(event.target.value);
+              }}
+              placeholder="e.g. 0244123456"
+            />
+          </label>
+          <button type="submit" className={calmPrimaryButtonInlineClass} disabled={lookupMutation.isPending}>
+            {lookupMutation.isPending ? "Looking up…" : "Look up"}
+          </button>
+        </form>
+        {lookupError !== null ? <p className="mt-3 text-sm text-destructive">{lookupError}</p> : null}
+
+        {showMatchPicker ? (
+          <ul className="mt-4 space-y-2">
+            {matches.map((match) => (
+              <li key={match.id}>
+                <button
+                  type="button"
+                  className="w-full rounded-lg border border-border bg-muted/20 px-3 py-3 text-left dark:bg-muted/10"
+                  disabled={loadByIdMutation.isPending}
+                  onClick={() => {
+                    loadByIdMutation.mutate(match.id);
+                  }}
+                >
+                  <p className="font-medium text-foreground">
+                    {vendorLabel({ vendorCode: match.vendorCode, name: match.name })}
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {[match.contactPhone, match.district, match.locationArea]
+                      .filter((part): part is string => part != null && part.length > 0)
+                      .join(" · ")}
+                  </p>
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </section>
 
       <section className="rounded-xl border border-border bg-card p-4 shadow-sm sm:p-6">
         <form className="flex flex-col gap-6" onSubmit={handleSubmitVisit}>
@@ -274,16 +263,25 @@ function RecordVendorVisitPageInner(): ReactElement {
               <p className="text-sm font-medium">Vendor</p>
               <Select
                 key={outletIdFromUrl || SELECT_NONE}
-                value={outletId || SELECT_NONE}
-                onValueChange={(value) => setPickedOutletId(value === SELECT_NONE ? "" : value)}
+                value={resolvedOutletId || SELECT_NONE}
+                onValueChange={(value) => {
+                  const next = value === SELECT_NONE ? "" : value;
+                  setPickedOutletId(next);
+                  if (next.length > 0) {
+                    loadByIdMutation.mutate(next);
+                  } else {
+                    setLookup(null);
+                    setIssuedItemIds([]);
+                  }
+                }}
               >
                 <SelectTrigger className="mt-1">
                   <SelectValue placeholder="Select vendor">{selectedVendorLabel}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={SELECT_NONE}>Select vendor</SelectItem>
-                  {outletId && selectedOutlet === null ? (
-                    <SelectItem value={outletId}>Selected vendor</SelectItem>
+                  {resolvedOutletId && selectedOutlet === null && lookup === null ? (
+                    <SelectItem value={resolvedOutletId}>Selected vendor</SelectItem>
                   ) : null}
                   {vendorOptions.map((outlet) => (
                     <SelectItem key={outlet.id} value={outlet.id}>
@@ -300,346 +298,41 @@ function RecordVendorVisitPageInner(): ReactElement {
                 </Link>
               </p>
             </div>
-            {selectedOutlet?.latitude != null && selectedOutlet.longitude != null ? (
-              <OutletMapPreview
-                latitude={selectedOutlet.latitude}
-                longitude={selectedOutlet.longitude}
-                locationArea={selectedOutlet.locationArea}
-              />
+            {(selectedOutlet?.latitude != null && selectedOutlet.longitude != null) ||
+            lookup?.outlet ? (
+              selectedOutlet?.latitude != null && selectedOutlet.longitude != null ? (
+                <OutletMapPreview
+                  latitude={selectedOutlet.latitude}
+                  longitude={selectedOutlet.longitude}
+                  locationArea={selectedOutlet.locationArea}
+                />
+              ) : null
             ) : null}
           </div>
 
-          {questionnaireQuery.data ? (
-            <div className="space-y-3">
-              <p className="text-sm font-medium">{questionnaireQuery.data.title}</p>
-              <div className="grid gap-4 sm:grid-cols-2">
-              {questionnaireQuery.data.questions.map((q) => {
-                const storedOptions = parseQuestionOptions(q.optionsJson);
-                const sellerOptions = (
-                  catalogs.vendorTypeValuesByType[selectedVendorTypeAnswer] ?? []
-                ).map((item) => item.label);
-                const options =
-                  q.prompt === VENDOR_TYPE_QUESTION_PROMPT
-                    ? catalogs.vendorTypes.map((item) => item.label)
-                    : q.prompt === SELLER_TYPE_QUESTION_PROMPT
-                      ? sellerOptions
-                      : storedOptions;
-                const isWide = q.type === "textarea" || q.type === "multi_choice";
-                return (
-                  <div key={q.id} className={`block text-sm${isWide ? " sm:col-span-2" : ""}`}>
-                    <p>
-                      {q.prompt}
-                      {q.required ? " *" : ""}
-                    </p>
-                    {q.helpText ? (
-                      <p className="mt-0.5 text-xs text-muted-foreground">{q.helpText}</p>
-                    ) : null}
-                    {q.type === "textarea" ? (
-                      <textarea
-                        className={fieldVendorInputClass}
-                        rows={3}
-                        value={answers[q.id] ?? ""}
-                        onChange={(e) =>
-                          setAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))
-                        }
-                        required={q.required}
-                      />
-                    ) : q.type === "boolean" ? (
-                      <Select
-                        value={answers[q.id]?.length ? answers[q.id]! : SELECT_NONE}
-                        onValueChange={(value) =>
-                          setAnswers((prev) => ({
-                            ...prev,
-                            [q.id]: value === SELECT_NONE ? "" : value
-                          }))
-                        }
-                      >
-                        <SelectTrigger className="mt-1 h-10 w-full">
-                          <SelectValue placeholder="Select" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value={SELECT_NONE}>Select</SelectItem>
-                          <SelectItem value="Yes">Yes</SelectItem>
-                          <SelectItem value="No">No</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    ) : q.type === "single_choice" ? (
-                      <Select
-                        value={answers[q.id]?.length ? answers[q.id]! : SELECT_NONE}
-                        onValueChange={(value) => {
-                          const next = value === SELECT_NONE ? "" : value;
-                          setAnswers((prev) => {
-                            const updated = { ...prev, [q.id]: next };
-                            if (q.prompt === VENDOR_TYPE_QUESTION_PROMPT && sellerTypeQuestionId) {
-                              updated[sellerTypeQuestionId] = "";
-                            }
-                            return updated;
-                          });
-                        }}
-                      >
-                        <SelectTrigger className="mt-1 h-10 w-full">
-                          <SelectValue placeholder="Select" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value={SELECT_NONE}>Select</SelectItem>
-                          {options.map((opt) => (
-                            <SelectItem key={opt} value={opt}>
-                              {opt}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : q.type === "multi_choice" ? (
-                      <CatalogCheckboxGroup
-                        options={options.map((opt) => ({ value: opt, label: opt }))}
-                        selected={parseMultiChoiceAnswer(answers[q.id])}
-                        onChange={(next) =>
-                          setAnswers((prev) => ({
-                            ...prev,
-                            [q.id]: serializeMultiChoiceAnswer(next)
-                          }))
-                        }
-                      />
-                    ) : (
-                      <input
-                        className={fieldVendorInputClass}
-                        type={q.type === "number" ? "number" : "text"}
-                        value={answers[q.id] ?? ""}
-                        onChange={(e) =>
-                          setAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))
-                        }
-                        required={q.required}
-                      />
-                    )}
-                  </div>
-                );
-              })}
-              </div>
-            </div>
-          ) : (
-            <p className="text-xs text-muted-foreground">
-              No active questionnaire configured. Ops can add one under Questionnaires.
-            </p>
-          )}
-
-          <div className="space-y-3">
-            <p className="text-sm font-medium">Nestlé visibility</p>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={nestleProductAvailable === true || nestleProducts.length > 0}
-                onChange={(e) => setNestleProductAvailable(e.target.checked)}
-              />
-              Nestlé product available
-            </label>
-            <div className="text-sm">
-              Nestlé products
-              <CatalogCheckboxGroup
-                options={catalogs.nestleProducts}
-                selected={nestleProducts}
-                onChange={setNestleProducts}
-              />
-            </div>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={outOfStock === true}
-                onChange={(e) => setOutOfStock(e.target.checked)}
-              />
-              Out of stock
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={posMaterialsPresent === true}
-                onChange={(e) => setPosMaterialsPresent(e.target.checked)}
-              />
-              POS materials present
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={promotionalMaterialsPresent === true}
-                onChange={(e) => setPromotionalMaterialsPresent(e.target.checked)}
-              />
-              Promotional materials present
-            </label>
-            <label className="text-sm">
-              Product placement
-              <textarea
-                className={fieldVendorInputClass}
-                rows={2}
-                value={productPlacementNotes}
-                onChange={(e) => setProductPlacementNotes(e.target.value)}
-              />
-            </label>
-            <label className="text-sm">
-              Shelf visibility
-              <textarea
-                className={fieldVendorInputClass}
-                rows={2}
-                value={shelfVisibilityNotes}
-                onChange={(e) => setShelfVisibilityNotes(e.target.value)}
-              />
-            </label>
-            <label className="text-sm">
-              Stock levels
-              <textarea
-                className={fieldVendorInputClass}
-                rows={2}
-                value={stockLevelNotes}
-                onChange={(e) => setStockLevelNotes(e.target.value)}
-              />
-            </label>
-          </div>
-
-          <div className="space-y-3">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-sm font-medium">Competitor activity</p>
-              <button
-                type="button"
-                className="text-xs font-medium text-primary hover:underline"
-                onClick={() => setCompetitors((prev) => [...prev, blankCompetitor()])}
-              >
-                Add competitor
-              </button>
-            </div>
-            <div className="grid gap-3 lg:grid-cols-2">
-            {competitors.map((competitor, index) => (
-              <div key={competitor.key} className="space-y-2 rounded-lg border border-border p-3 sm:p-4">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-medium text-muted-foreground">
-                    Competitor {index + 1}
-                  </p>
-                  {competitors.length > 1 ? (
-                    <button
-                      type="button"
-                      className="text-xs text-destructive hover:underline"
-                      onClick={() =>
-                        setCompetitors((prev) =>
-                          prev.filter((item) => item.key !== competitor.key)
-                        )
-                      }
-                    >
-                      Remove
-                    </button>
-                  ) : null}
-                </div>
-                <label className="block text-sm">
-                  Brand
-                  <CatalogSelect
-                    value={competitor.brandName}
-                    options={catalogs.competitorBrands}
-                    onValueChange={(value) =>
-                      setCompetitors((prev) =>
-                        prev.map((item) =>
-                          item.key === competitor.key
-                            ? { ...item, brandName: value, products: [] }
-                            : item
-                        )
-                      )
-                    }
-                    allowEmpty
-                    emptyLabel="Select brand"
-                  />
-                </label>
-                {competitor.brandName === "Other" ? (
-                  <label className="block text-sm">
-                    Other brand name
-                    <input
-                      className={fieldVendorInputClass}
-                      value={competitor.brandNameOther ?? ""}
-                      onChange={(e) =>
-                        setCompetitors((prev) =>
-                          prev.map((item) =>
-                            item.key === competitor.key
-                              ? { ...item, brandNameOther: e.target.value }
-                              : item
-                          )
-                        )
-                      }
-                    />
-                  </label>
-                ) : null}
-                {competitor.brandName.length > 0 ? (
-                  <div className="text-sm">
-                    Products
-                    <CatalogCheckboxGroup
-                      options={
-                        catalogs.competitorProductsByBrand[competitor.brandName] ??
-                        catalogs.competitorProductsByBrand.Other ??
-                        []
-                      }
-                      selected={competitor.products ?? []}
-                      onChange={(next) =>
-                        setCompetitors((prev) =>
-                          prev.map((item) =>
-                            item.key === competitor.key ? { ...item, products: next } : item
-                          )
-                        )
-                      }
-                    />
-                  </div>
-                ) : null}
-                {(
-                  [
-                    ["pricingNotes", "Pricing"],
-                    ["promotionsNotes", "Promotions"],
-                    ["discountsNotes", "Discounts"],
-                    ["newLaunchesNotes", "New launches"],
-                    ["displayQualityNotes", "Display quality"],
-                    ["marketObservations", "Market observations"]
-                  ] as const
-                ).map(([field, label]) => (
-                  <label key={field} className="block text-sm">
-                    {label}
-                    {field === "marketObservations" ? (
-                      <textarea
-                        className={fieldVendorInputClass}
-                        rows={2}
-                        value={competitor[field] ?? ""}
-                        onChange={(e) =>
-                          setCompetitors((prev) =>
-                            prev.map((item) =>
-                              item.key === competitor.key
-                                ? { ...item, [field]: e.target.value }
-                                : item
-                            )
-                          )
-                        }
-                      />
-                    ) : (
-                      <input
-                        className={fieldVendorInputClass}
-                        value={competitor[field] ?? ""}
-                        onChange={(e) =>
-                          setCompetitors((prev) =>
-                            prev.map((item) =>
-                              item.key === competitor.key
-                                ? { ...item, [field]: e.target.value }
-                                : item
-                            )
-                          )
-                        }
-                      />
-                    )}
-                  </label>
-                ))}
-              </div>
-            ))}
-            </div>
-          </div>
+          <ItemsGivenFields
+            items={catalogItems.map((item) => ({ id: item.id, name: item.name }))}
+            selectedIds={issuedItemIds}
+            lockedIds={lookup?.items.filter((item) => item.given).map((item) => item.id) ?? []}
+            onToggle={(itemId, given) => {
+              setIssuedItemIds((prev) =>
+                given ? [...prev, itemId] : prev.filter((id) => id !== itemId)
+              );
+            }}
+          />
 
           <button
             type="submit"
             className={`${calmPrimaryButtonClass} lg:w-auto lg:min-w-56`}
-            disabled={createVisitMutation.isPending || isCapturingVisitLocation || !outletId}
+            disabled={
+              createVisitMutation.isPending || isCapturingVisitLocation || resolvedOutletId.length === 0
+            }
           >
             {isCapturingVisitLocation
               ? "Getting GPS…"
               : createVisitMutation.isPending
-                ? "Submitting…"
-                : "Submit visit"}
+                ? "Saving…"
+                : "Save items visit"}
           </button>
         </form>
       </section>
@@ -650,7 +343,7 @@ function RecordVendorVisitPageInner(): ReactElement {
 export default function RecordVendorVisitPage(): ReactElement {
   return (
     <Suspense fallback={<BoneyardInlineFallback name="field-record-visit-suspense" className="min-h-32" />}>
-      <RecordVendorVisitPageInner />
+      <RecordItemsVisitPageInner />
     </Suspense>
   );
 }

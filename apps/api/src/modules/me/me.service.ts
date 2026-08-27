@@ -3,11 +3,16 @@ import { ConfigService } from "@nestjs/config";
 import { DateTime } from "luxon";
 
 import type { AuthenticatedUser } from "../../common/types/authenticated-user.type";
-import type { AttendanceKind } from "../../generated/prisma/client";
+import type { AttendanceKind, OutletVisitKind } from "../../generated/prisma/client";
 import type { EnvironmentVariables } from "../../config/environment";
 import { type GeofenceWatchZone, GeofenceService } from "../geofence/geofence.service";
 import { OutletRepository } from "../outlet/outlet.repository";
 import { OutletService } from "../outlet/outlet.service";
+import {
+  mapCompetitorRows,
+  visitIncompleteReasons,
+  visitVisibilityScore
+} from "../outlet/visit-intel.util";
 import { PrismaService } from "../prisma/prisma.service";
 import { TrackingStreamService } from "../tracking/tracking-stream.service";
 import type { CreateOutletVisitDto } from "./dto/create-outlet-visit.dto";
@@ -433,35 +438,39 @@ export class MeService {
 
     const hasAnyPhoto = (resolvedPhoto?.hasPhoto ?? false) || resolvedPhotos.length > 0;
 
-    const visibilityFlags = [
-      payload.nestleProductAvailable === true,
-      payload.posMaterialsPresent === true,
-      payload.promotionalMaterialsPresent === true,
-      payload.outOfStock !== true,
-      (payload.shelfVisibilityNotes?.trim().length ?? 0) > 0,
-      (payload.productPlacementNotes?.trim().length ?? 0) > 0
-    ];
-    const visibilityScore =
-      payload.nestleProductAvailable !== undefined ||
-      payload.posMaterialsPresent !== undefined ||
-      payload.promotionalMaterialsPresent !== undefined ||
-      payload.outOfStock !== undefined ||
-      payload.shelfVisibilityNotes !== undefined ||
-      payload.productPlacementNotes !== undefined
-        ? Math.round((visibilityFlags.filter(Boolean).length / visibilityFlags.length) * 100)
-        : null;
+    const visitKind: OutletVisitKind = payload.kind === "onboarding" ? "onboarding" : "items";
+    const intel = {
+      nestleProductAvailable: payload.nestleProductAvailable,
+      nestleProducts: payload.nestleProducts,
+      productPlacementNotes: payload.productPlacementNotes,
+      shelfVisibilityNotes: payload.shelfVisibilityNotes,
+      posMaterialsPresent: payload.posMaterialsPresent,
+      promotionalMaterialsPresent: payload.promotionalMaterialsPresent,
+      stockLevelNotes: payload.stockLevelNotes,
+      outOfStock: payload.outOfStock,
+      competitors: payload.competitors,
+      questionnaire: payload.questionnaire
+    };
+    const visibilityScore = visitVisibilityScore(intel);
+    const incompleteReasons = visitIncompleteReasons(visitKind, intel);
 
-    const incompleteReasons: string[] = [];
-    if (payload.questionnaire === undefined) {
-      incompleteReasons.push("questionnaire");
-    }
-    if (payload.nestleProductAvailable === undefined && payload.outOfStock === undefined) {
-      incompleteReasons.push("visibility");
+    const issuedItemIds = [
+      ...new Set((payload.issuedItemIds ?? []).map((id) => id.trim()).filter((id) => id.length > 0))
+    ];
+    if (issuedItemIds.length > 0) {
+      const found = await this.prisma.catalogDistributionItem.findMany({
+        where: { id: { in: issuedItemIds }, isActive: true },
+        select: { id: true }
+      });
+      if (found.length !== issuedItemIds.length) {
+        throw new BadRequestException("Unknown distribution item");
+      }
     }
 
     const visitData = {
       outletId: outlet.id,
       userId: currentUser.id,
+      kind: visitKind,
       latitude: payload.latitude,
       longitude: payload.longitude,
       outletPhotoMimeType: resolvedPhoto?.mimeType ?? null,
@@ -490,18 +499,7 @@ export class MeService {
       isComplete: incompleteReasons.length === 0,
       incompleteReasons: incompleteReasons.length > 0 ? incompleteReasons.join(",") : null,
       photos: resolvedPhotos,
-      competitors: (payload.competitors ?? []).map((c) => ({
-        brandName: c.brandName.trim(),
-        brandNameOther: c.brandNameOther?.trim() ?? null,
-        productsJson:
-          c.products !== undefined && c.products.length > 0 ? JSON.stringify(c.products) : null,
-        pricingNotes: c.pricingNotes?.trim() ?? null,
-        promotionsNotes: c.promotionsNotes?.trim() ?? null,
-        discountsNotes: c.discountsNotes?.trim() ?? null,
-        newLaunchesNotes: c.newLaunchesNotes?.trim() ?? null,
-        displayQualityNotes: c.displayQualityNotes?.trim() ?? null,
-        marketObservations: c.marketObservations?.trim() ?? null
-      }))
+      competitors: mapCompetitorRows(payload.competitors)
     };
 
     const transactionTimeoutMs = this.configService.get("PRISMA_TRANSACTION_TIMEOUT_MS", {
@@ -525,6 +523,18 @@ export class MeService {
               }
             }
           });
+        }
+
+        if (issuedItemIds.length > 0) {
+          await this.outletRepository.createItemIssuances(
+            issuedItemIds.map((itemId) => ({
+              outletId: outlet.id,
+              itemId,
+              issuedByUserId: currentUser.id,
+              visitId: visit.id
+            })),
+            tx
+          );
         }
 
         if (!visitData.isComplete) {

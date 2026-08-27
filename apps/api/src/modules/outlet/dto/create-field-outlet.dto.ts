@@ -2,6 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { Type } from "class-transformer";
 import {
   IsArray,
+  IsBoolean,
   IsEmail,
   IsInt,
   IsLatitude,
@@ -15,7 +16,11 @@ import {
   ValidateNested
 } from "class-validator";
 
-import { OutletVisitPhotoInputDto } from "../../me/dto/create-outlet-visit.dto";
+import {
+  CompetitorObservationInputDto,
+  OutletVisitPhotoInputDto,
+  QuestionnaireResponseInputDto
+} from "../../me/dto/create-outlet-visit.dto";
 import { OutletProfileExtrasDto } from "./outlet-profile-extras.dto";
 
 export class CreateFieldOutletDto extends OutletProfileExtrasDto {
@@ -117,4 +122,68 @@ export class CreateFieldOutletDto extends OutletProfileExtrasDto {
   @ValidateNested({ each: true })
   @Type(() => OutletVisitPhotoInputDto)
   public photos?: OutletVisitPhotoInputDto[];
+
+  @ApiPropertyOptional({ type: Boolean })
+  @IsOptional()
+  @IsBoolean()
+  public nestleProductAvailable?: boolean;
+
+  @ApiPropertyOptional({ type: [String], example: ["Milo", "Maggi"] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @MaxLength(80, { each: true })
+  public nestleProducts?: string[];
+
+  @ApiPropertyOptional({ type: String })
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  public productPlacementNotes?: string;
+
+  @ApiPropertyOptional({ type: String })
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  public shelfVisibilityNotes?: string;
+
+  @ApiPropertyOptional({ type: Boolean })
+  @IsOptional()
+  @IsBoolean()
+  public posMaterialsPresent?: boolean;
+
+  @ApiPropertyOptional({ type: Boolean })
+  @IsOptional()
+  @IsBoolean()
+  public promotionalMaterialsPresent?: boolean;
+
+  @ApiPropertyOptional({ type: String })
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  public stockLevelNotes?: string;
+
+  @ApiPropertyOptional({ type: Boolean })
+  @IsOptional()
+  @IsBoolean()
+  public outOfStock?: boolean;
+
+  @ApiPropertyOptional({ type: [CompetitorObservationInputDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CompetitorObservationInputDto)
+  public competitors?: CompetitorObservationInputDto[];
+
+  @ApiPropertyOptional({ type: QuestionnaireResponseInputDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => QuestionnaireResponseInputDto)
+  public questionnaire?: QuestionnaireResponseInputDto;
+
+  @ApiPropertyOptional({ type: [String], description: "Catalog item IDs given during onboarding" })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  public issuedItemIds?: string[];
 }

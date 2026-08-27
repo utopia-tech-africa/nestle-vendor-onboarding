@@ -24,6 +24,11 @@ export enum VisitPhotoCategoryDto {
   competitor = "competitor"
 }
 
+export enum OutletVisitKindDto {
+  onboarding = "onboarding",
+  items = "items"
+}
+
 export enum TrafficCategoryDto {
   LOW = "LOW",
   MEDIUM = "MEDIUM",
@@ -135,6 +140,11 @@ export class CreateOutletVisitDto {
   @IsString()
   @MinLength(10)
   public outletId!: string;
+
+  @ApiPropertyOptional({ enum: OutletVisitKindDto, default: OutletVisitKindDto.items })
+  @IsOptional()
+  @IsEnum(OutletVisitKindDto)
+  public kind?: OutletVisitKindDto;
 
   @ApiProperty({ type: Number, example: 5.6037 })
   @IsNumber()
@@ -263,4 +273,10 @@ export class CreateOutletVisitDto {
   @ValidateNested()
   @Type(() => QuestionnaireResponseInputDto)
   public questionnaire?: QuestionnaireResponseInputDto;
+
+  @ApiPropertyOptional({ type: [String], description: "Catalog item IDs given on this visit" })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  public issuedItemIds?: string[];
 }

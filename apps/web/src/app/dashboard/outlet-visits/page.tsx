@@ -52,7 +52,7 @@ export default function FieldVendorsHubPage(): ReactElement {
         <div className="min-w-0">
           <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">Vendors</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Add a koko vendor or record a visit. Photos are captured when you add a vendor.
+            Add a koko vendor with the full questionnaire, or record items given on a later visit.
           </p>
         </div>
         <Link href="/dashboard/outlet-visits/history" className={calmMutedLinkClass}>
@@ -69,7 +69,7 @@ export default function FieldVendorsHubPage(): ReactElement {
           <span>
             <span className="block text-sm font-semibold">Add vendor</span>
             <span className="mt-1 block text-sm text-muted-foreground">
-              Register a new koko vendor with GPS and photos.
+              Profile, questionnaire, stall intel, photos, and items given.
             </span>
           </span>
         </Link>
@@ -79,9 +79,9 @@ export default function FieldVendorsHubPage(): ReactElement {
         >
           <ClipboardCheck className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden />
           <span>
-            <span className="block text-sm font-semibold">Record visit</span>
+            <span className="block text-sm font-semibold">Items given</span>
             <span className="mt-1 block text-sm text-muted-foreground">
-              Questionnaire, visibility, and competitors.
+              Tick items you have given her and save with GPS.
             </span>
           </span>
         </Link>
@@ -138,7 +138,7 @@ export default function FieldVendorsHubPage(): ReactElement {
                       href={fieldVendorVisitHref(vendor.id)}
                       className={`${calmPrimaryButtonInlineClass} min-w-20 px-3 py-2 text-xs`}
                     >
-                      Visit
+                      Items
                     </Link>
                   </li>
                 );
@@ -185,7 +185,7 @@ export default function FieldVendorsHubPage(): ReactElement {
                             href={fieldVendorVisitHref(vendor.id)}
                             className={calmPrimaryButtonInlineClass}
                           >
-                            Visit
+                            Items
                           </Link>
                         </td>
                       </tr>

@@ -7,15 +7,12 @@ import {
 } from "@nestjs/common";
 
 import type { AuthenticatedUser, UserRole } from "../../common/types/authenticated-user.type";
-import { CatalogService } from "../outlet/catalog.service";
-import { sellerTypeValues } from "../outlet/field-catalogs";
 import type { CreateQuestionnaireDto, UpdateQuestionnaireDto } from "./dto/questionnaire.dto";
 import { QuestionTypeDto as QuestionTypeEnum } from "./dto/questionnaire.dto";
 import {
   DEFAULT_QUESTIONNAIRE_DESCRIPTION,
   DEFAULT_QUESTIONNAIRE_TITLE,
-  buildDefaultQuestionnaireQuestions,
-  competitorProductLabelsFromCatalog
+  buildDefaultQuestionnaireQuestions
 } from "./default-questionnaire";
 import { QuestionnaireRepository } from "./questionnaire.repository";
 
@@ -24,8 +21,7 @@ const MANAGER_ROLES = new Set<UserRole>(["admin", "supervisor"]);
 @Injectable()
 export class QuestionnaireService {
   public constructor(
-    @Inject(QuestionnaireRepository) private readonly repository: QuestionnaireRepository,
-    @Inject(CatalogService) private readonly catalogService: CatalogService
+    @Inject(QuestionnaireRepository) private readonly repository: QuestionnaireRepository
   ) {}
 
   private assertManager(user: AuthenticatedUser): void {
@@ -91,14 +87,7 @@ export class QuestionnaireService {
 
   public async seedDefaultIfEmpty(user: AuthenticatedUser) {
     this.assertManager(user);
-    const catalogs = await this.catalogService.getFieldCatalogs();
-    const questions = buildDefaultQuestionnaireQuestions({
-      nestleProducts: catalogs.nestleProducts.map((item) => item.label),
-      competitorBrands: catalogs.competitorBrands.map((item) => item.label),
-      competitorProducts: competitorProductLabelsFromCatalog(catalogs.competitorProductsByBrand),
-      vendorTypes: catalogs.vendorTypes.map((item) => item.label),
-      sellerTypes: sellerTypeValues(catalogs.vendorTypeValuesByType).map((item) => item.label)
-    });
+    const questions = buildDefaultQuestionnaireQuestions();
     const existing = await this.repository.findByTitle(DEFAULT_QUESTIONNAIRE_TITLE);
     if (existing !== null) {
       return this.repository.replace(existing.id, {

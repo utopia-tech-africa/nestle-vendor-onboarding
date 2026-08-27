@@ -45,6 +45,11 @@ enum TrafficCategory {
   HIGH
 }
 
+enum OutletVisitKind {
+  onboarding
+  items
+}
+
 enum QuestionType {
   text
   textarea
@@ -268,6 +273,7 @@ model OutletVisit {
   id                        String   @id @default(cuid())
   outletId                  String
   userId                    String
+  kind                      OutletVisitKind @default(onboarding)
   latitude                  Float
   longitude                 Float
   outletPhotoMimeType       String?
@@ -309,10 +315,12 @@ model OutletVisit {
   photos                    OutletVisitPhoto[]
   competitorObservations    CompetitorObservation[]
   questionnaireResponses    QuestionnaireResponse[]
+  itemIssuances             OutletItemIssuance[]
 
   @@index([outletId, checkedInAt(sort: Desc)])
   @@index([userId, checkedInAt(sort: Desc)])
   @@index([checkedInAt(sort: Desc)])
+  @@index([kind])
 }
 
 model OutletOnboardingPhoto {
@@ -515,15 +523,18 @@ model OutletItemIssuance {
   id             String                   @id @default(cuid())
   outletId       String
   itemId         String
+  visitId        String?
   issuedAt       DateTime                 @default(now())
   issuedByUserId String
   notes          String?
   outlet         Outlet                   @relation(fields: [outletId], references: [id], onDelete: Cascade)
   item           CatalogDistributionItem  @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  visit          OutletVisit?             @relation(fields: [visitId], references: [id], onDelete: SetNull)
   issuedBy       User                     @relation("OutletItemIssuedBy", fields: [issuedByUserId], references: [id], onDelete: Restrict)
 
   @@unique([outletId, itemId])
   @@index([outletId])
   @@index([itemId])
+  @@index([visitId])
   @@index([issuedByUserId])
 }

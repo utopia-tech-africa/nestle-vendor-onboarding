@@ -2,6 +2,8 @@ import { toPendingOutletId, type PendingLocalVendor } from "@/lib/field/field-of
 import type {
   CompetitorObservationInput,
   OutletRecord,
+  QuestionnaireQuestion,
+  VisitIntelPayload,
   VisitPhotoCategory
 } from "@/lib/outlet/outlet-api";
 
@@ -133,6 +135,93 @@ export const parseMultiChoiceAnswer = (value: string | undefined): string[] =>
     .filter((item) => item.length > 0);
 
 export const serializeMultiChoiceAnswer = (values: string[]): string => values.join(", ");
+
+export const competitorPayloadFromDrafts = (
+  competitors: CompetitorDraft[]
+): CompetitorObservationInput[] =>
+  competitors
+    .filter((competitor) => competitor.brandName.trim().length > 0)
+    .map((competitor) => ({
+      brandName: competitor.brandName.trim(),
+      ...(competitor.brandName === "Other" && competitor.brandNameOther?.trim()
+        ? { brandNameOther: competitor.brandNameOther.trim() }
+        : {}),
+      ...(competitor.products && competitor.products.length > 0
+        ? { products: competitor.products }
+        : {}),
+      ...(competitor.pricingNotes?.trim() ? { pricingNotes: competitor.pricingNotes.trim() } : {}),
+      ...(competitor.promotionsNotes?.trim()
+        ? { promotionsNotes: competitor.promotionsNotes.trim() }
+        : {}),
+      ...(competitor.discountsNotes?.trim()
+        ? { discountsNotes: competitor.discountsNotes.trim() }
+        : {}),
+      ...(competitor.newLaunchesNotes?.trim()
+        ? { newLaunchesNotes: competitor.newLaunchesNotes.trim() }
+        : {}),
+      ...(competitor.displayQualityNotes?.trim()
+        ? { displayQualityNotes: competitor.displayQualityNotes.trim() }
+        : {}),
+      ...(competitor.marketObservations?.trim()
+        ? { marketObservations: competitor.marketObservations.trim() }
+        : {})
+    }));
+
+export const visitIntelPayload = (input: {
+  nestleProductAvailable: boolean | null;
+  nestleProducts: string[];
+  productPlacementNotes: string;
+  shelfVisibilityNotes: string;
+  posMaterialsPresent: boolean | null;
+  promotionalMaterialsPresent: boolean | null;
+  stockLevelNotes: string;
+  outOfStock: boolean | null;
+  competitors: CompetitorDraft[];
+  questionnaire: { id: string; questions: QuestionnaireQuestion[] } | null | undefined;
+  answers: Record<string, string>;
+  issuedItemIds: string[];
+}): VisitIntelPayload => {
+  const competitorPayload = competitorPayloadFromDrafts(input.competitors);
+  const questionnairePayload =
+    input.questionnaire != null
+      ? {
+          questionnaireId: input.questionnaire.id,
+          answers: input.questionnaire.questions.map((question) => {
+            const value = input.answers[question.id]?.trim() ?? "";
+            return {
+              questionId: question.id,
+              ...(value.length > 0 ? { valueText: value } : {})
+            };
+          })
+        }
+      : undefined;
+  return {
+    ...(input.nestleProductAvailable !== null || input.nestleProducts.length > 0
+      ? {
+          nestleProductAvailable:
+            input.nestleProductAvailable === true || input.nestleProducts.length > 0
+        }
+      : {}),
+    ...(input.nestleProducts.length > 0 ? { nestleProducts: input.nestleProducts } : {}),
+    ...(input.productPlacementNotes.trim()
+      ? { productPlacementNotes: input.productPlacementNotes.trim() }
+      : {}),
+    ...(input.shelfVisibilityNotes.trim()
+      ? { shelfVisibilityNotes: input.shelfVisibilityNotes.trim() }
+      : {}),
+    ...(input.posMaterialsPresent !== null
+      ? { posMaterialsPresent: input.posMaterialsPresent }
+      : {}),
+    ...(input.promotionalMaterialsPresent !== null
+      ? { promotionalMaterialsPresent: input.promotionalMaterialsPresent }
+      : {}),
+    ...(input.stockLevelNotes.trim() ? { stockLevelNotes: input.stockLevelNotes.trim() } : {}),
+    ...(input.outOfStock !== null ? { outOfStock: input.outOfStock } : {}),
+    ...(competitorPayload.length > 0 ? { competitors: competitorPayload } : {}),
+    ...(questionnairePayload !== undefined ? { questionnaire: questionnairePayload } : {}),
+    ...(input.issuedItemIds.length > 0 ? { issuedItemIds: input.issuedItemIds } : {})
+  };
+};
 
 export const pendingVendorsToRecords = (pendingVendors: PendingLocalVendor[]): OutletRecord[] =>
   pendingVendors.map((vendor) => ({

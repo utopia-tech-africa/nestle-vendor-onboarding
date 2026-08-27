@@ -137,7 +137,7 @@ export default function ClientProgrammePage(): ReactElement {
       <section className={`${shellCard} grid grid-cols-2 gap-1 p-3 sm:grid-cols-3 lg:grid-cols-4`}>
         <StatCell label="Vendors onboarded" value={data?.vendorsOnboarded ?? "—"} loading={loading} />
         <StatCell label="Active promoters" value={data?.activePromoters ?? "—"} loading={loading} />
-        <StatCell label="Daily visits" value={data?.dailyVisits ?? "—"} loading={loading} />
+        <StatCell label="Items given (today)" value={data?.dailyVisits ?? "—"} loading={loading} />
         <StatCell
           label="Questionnaires"
           value={data?.completedQuestionnaires ?? "—"}

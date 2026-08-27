@@ -82,7 +82,7 @@ export default function OpsOrganizationPage(): ReactElement {
           />
           <OrgCard
             title="Vendor visit reports"
-            description="Photos, questionnaire, footfall, visibility, and competitor intel."
+            description="Onboarding questionnaires, stall intel, photos, and later items-given visits."
             href="/ops/outlets/visits"
             linkLabel="Open visit reports →"
           />
@@ -90,13 +90,13 @@ export default function OpsOrganizationPage(): ReactElement {
             <>
               <OrgCard
                 title="Questionnaires"
-                description="Seed or edit the active visit questionnaire without an app update."
+                description="Seed or edit the market-intel questions shown when a promoter adds a vendor."
                 href="/ops/questionnaires"
                 linkLabel="Open questionnaires →"
               />
               <OrgCard
                 title="Products & competitors"
-                description="Nestlé products and competitor brands/products used as visit-form dropdowns."
+                description="Nestlé products, competitor catalogs, and vendor types used on the add-vendor form."
                 href="/ops/catalogs"
                 linkLabel="Open catalogs →"
               />

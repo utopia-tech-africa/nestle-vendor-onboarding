@@ -9,7 +9,7 @@ export default function ClientVisitsPage(): ReactElement {
     <OutletVisitReports
       queryKeyPrefix="client"
       title="Visit reports"
-      description="Read-only visit reports: photos, questionnaire, footfall, visibility, and competitor intel."
+      description="Onboarding captures questionnaire, stall intel, and photos. Later visits record items given."
       fallbackName="client-outlet-visits-report"
     />
   );

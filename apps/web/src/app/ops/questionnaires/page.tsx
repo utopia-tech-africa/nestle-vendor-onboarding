@@ -140,7 +140,7 @@ export default function OpsQuestionnairesPage(): ReactElement {
   const seedMutation = useMutation({
     mutationFn: async () => seedDefaultQuestionnaire(accessToken ?? ""),
     onSuccess: (row) => {
-      toast.success("Default Nestlé questionnaire updated with catalog dropdowns");
+      toast.success("Default Nestlé questionnaire updated with market-intel questions");
       setCreating(false);
       setSelectedId(row.id);
       void queryClient.invalidateQueries({ queryKey: ["ops", "questionnaires"] });
@@ -210,9 +210,9 @@ export default function OpsQuestionnairesPage(): ReactElement {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Questionnaires</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            These questions are the visit form — including footfall. Edit them here without an app
-            update. Seed Nestlé default refreshes gender, role, age, employees, products, footfall,
-            and competitor dropdowns from the catalogs.
+            These questions appear when a promoter adds a vendor. Seed Nestlé default loads the live
+            production questionnaire, without vendor type, profile, products, competitors, or items
+            given — those stay on the Add vendor form.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">

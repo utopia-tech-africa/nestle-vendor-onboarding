@@ -9,7 +9,7 @@ export default function OpsOutletVisitsReportPage(): ReactElement {
     <OutletVisitReports
       queryKeyPrefix="ops"
       title="Vendor visit reports"
-      description="Filter visits by vendor, promoter, and date. Review photos, questionnaire, footfall, visibility, and competitor intel."
+      description="Filter visits by vendor, promoter, and date. Onboarding visits include questionnaire and stall intel; later visits show items given."
       fallbackName="ops-outlet-visits-report"
     />
   );

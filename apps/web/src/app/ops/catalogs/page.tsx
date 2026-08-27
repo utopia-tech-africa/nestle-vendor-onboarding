@@ -330,7 +330,7 @@ export default function OpsCatalogsPage(): ReactElement {
         <h1 className="text-2xl font-bold tracking-tight text-foreground">Products, competitors & vendor types</h1>
         <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
           Add Nestlé products, competitor brands, vendor types, and seller types. Promoters see these as
-          dropdowns on onboarding and the visit form — they do not type free text.
+          dropdowns when they add a vendor — they do not type free text.
         </p>
       </div>
 

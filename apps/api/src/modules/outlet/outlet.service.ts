@@ -26,6 +26,11 @@ import type { UpdateOutletDto } from "./dto/update-outlet.dto";
 import { CatalogService } from "./catalog.service";
 import { OutletRepository } from "./outlet.repository";
 import {
+  mapCompetitorRows,
+  visitIncompleteReasons,
+  visitVisibilityScore
+} from "./visit-intel.util";
+import {
   looksLikeVendorCodeQuery,
   phoneLookupNeedle,
   vendorCodeLookupCandidates
@@ -406,24 +411,116 @@ export class OutletService {
     const category = dto.category.trim();
     await this.assertVendorTypeCatalog(vendorTypeGroup, category);
 
-    const created = await this.outletRepository.create({
-      name: dto.name.trim(),
-      vendorTypeGroup,
-      category,
-      distributorName: (dto.distributorName ?? "N/A").trim(),
-      locationArea,
-      district: dto.district?.trim() ?? null,
-      regionId: regionId ?? null,
-      yearsInBusiness: dto.yearsInBusiness ?? null,
-      latitude: dto.latitude,
-      longitude: dto.longitude,
-      contactName: dto.contactName.trim(),
-      contactPhone: dto.contactPhone.trim(),
-      contactEmail: dto.contactEmail?.trim().toLowerCase() ?? null,
-      ...this.profileFieldsFromCreate(dto),
-      isActive: true,
-      createdByUserId: currentUser.id,
-      ...(onboardingPhotos.length > 0 ? { onboardingPhotos } : {})
+    const issuedItemIds = [...new Set((dto.issuedItemIds ?? []).map((id) => id.trim()).filter((id) => id.length > 0))];
+    if (issuedItemIds.length > 0) {
+      const catalogItems = await this.catalogService.listDistributionItems(true);
+      const activeIds = new Set(catalogItems.filter((item) => item.isActive).map((item) => item.id));
+      const unknown = issuedItemIds.find((id) => !activeIds.has(id));
+      if (unknown !== undefined) {
+        throw new BadRequestException("Unknown distribution item");
+      }
+    }
+
+    const intel = {
+      nestleProductAvailable: dto.nestleProductAvailable,
+      nestleProducts: dto.nestleProducts,
+      productPlacementNotes: dto.productPlacementNotes,
+      shelfVisibilityNotes: dto.shelfVisibilityNotes,
+      posMaterialsPresent: dto.posMaterialsPresent,
+      promotionalMaterialsPresent: dto.promotionalMaterialsPresent,
+      stockLevelNotes: dto.stockLevelNotes,
+      outOfStock: dto.outOfStock,
+      competitors: dto.competitors,
+      questionnaire: dto.questionnaire
+    };
+    const incompleteReasons = visitIncompleteReasons("onboarding", intel);
+    const visibilityScore = visitVisibilityScore(intel);
+
+    const created = await this.outletRepository.runTransaction(async (tx) => {
+      const outlet = await this.outletRepository.create(
+        {
+          name: dto.name.trim(),
+          vendorTypeGroup,
+          category,
+          distributorName: (dto.distributorName ?? "N/A").trim(),
+          locationArea,
+          district: dto.district?.trim() ?? null,
+          regionId: regionId ?? null,
+          yearsInBusiness: dto.yearsInBusiness ?? null,
+          latitude: dto.latitude,
+          longitude: dto.longitude,
+          contactName: dto.contactName.trim(),
+          contactPhone: dto.contactPhone.trim(),
+          contactEmail: dto.contactEmail?.trim().toLowerCase() ?? null,
+          ...this.profileFieldsFromCreate(dto),
+          isActive: true,
+          createdByUserId: currentUser.id,
+          ...(onboardingPhotos.length > 0 ? { onboardingPhotos } : {})
+        },
+        tx
+      );
+
+      const visit = await this.outletRepository.createVisit(
+        {
+          outletId: outlet.id,
+          userId: currentUser.id,
+          kind: "onboarding",
+          latitude: dto.latitude,
+          longitude: dto.longitude,
+          outletPhotoMimeType: null,
+          outletPhotoImage: null,
+          outletPhotoCloudinaryPublicId: null,
+          outletPhotoCloudinaryUrl: null,
+          hasOutletPhoto: onboardingPhotos.length > 0,
+          stockAvailabilityNotes: null,
+          consumerEngagementNotes: null,
+          nestleProductAvailable: dto.nestleProductAvailable ?? null,
+          nestleProductsJson:
+            dto.nestleProducts !== undefined && dto.nestleProducts.length > 0
+              ? JSON.stringify(dto.nestleProducts)
+              : null,
+          productPlacementNotes: dto.productPlacementNotes?.trim() ?? null,
+          shelfVisibilityNotes: dto.shelfVisibilityNotes?.trim() ?? null,
+          posMaterialsPresent: dto.posMaterialsPresent ?? null,
+          promotionalMaterialsPresent: dto.promotionalMaterialsPresent ?? null,
+          stockLevelNotes: dto.stockLevelNotes?.trim() ?? null,
+          outOfStock: dto.outOfStock ?? null,
+          visibilityScore,
+          isComplete: incompleteReasons.length === 0,
+          incompleteReasons: incompleteReasons.length > 0 ? incompleteReasons.join(",") : null,
+          competitors: mapCompetitorRows(dto.competitors)
+        },
+        tx
+      );
+
+      if (dto.questionnaire !== undefined) {
+        await tx.questionnaireResponse.create({
+          data: {
+            questionnaireId: dto.questionnaire.questionnaireId,
+            visitId: visit.id,
+            answers: {
+              create: dto.questionnaire.answers.map((answer) => ({
+                questionId: answer.questionId,
+                valueText: answer.valueText?.trim() ?? null
+              }))
+            }
+          }
+        });
+      }
+
+      if (issuedItemIds.length > 0) {
+        await this.outletRepository.createItemIssuances(
+          issuedItemIds.map((itemId) => ({
+            outletId: outlet.id,
+            itemId,
+            issuedByUserId: currentUser.id,
+            visitId: visit.id
+          })),
+          tx
+        );
+      }
+
+      return outlet;
     });
 
     void this.opsAlertService.notifyNewVendor({
