@@ -1,6 +1,6 @@
 "use client";
 
-import { ClipboardCheck, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import Link from "next/link";
 import { type ReactElement, useMemo, useState } from "react";
 
@@ -10,11 +10,7 @@ import { useAuthStore } from "@/lib/auth/auth-store";
 import { calmMutedLinkClass, calmPrimaryButtonInlineClass } from "@/lib/calm-ui";
 import { vendorTypeDisplayLabel } from "@/lib/outlet/field-catalogs";
 
-import {
-  fieldVendorInputClass,
-  fieldVendorPageClass,
-  fieldVendorVisitHref
-} from "./field-vendor-shared";
+import { fieldVendorInputClass, fieldVendorPageClass } from "./field-vendor-shared";
 import { useFieldVendorOptions } from "./use-field-vendor-options";
 
 export default function FieldVendorsHubPage(): ReactElement {
@@ -52,39 +48,18 @@ export default function FieldVendorsHubPage(): ReactElement {
         <div className="min-w-0">
           <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">Vendors</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Add a koko vendor with the full questionnaire, or record items given on a later visit.
+            Onboard koko vendors here. Later trips to tick items given are on the Items tab.
           </p>
         </div>
-        <Link href="/dashboard/outlet-visits/history" className={calmMutedLinkClass}>
-          Today&apos;s visits
-        </Link>
-      </div>
-
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Link
-          href="/dashboard/outlet-visits/new"
-          className="flex items-start gap-3 rounded-xl border border-border bg-card p-4 shadow-sm transition-colors hover:border-primary/40 sm:p-5"
-        >
-          <Plus className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden />
-          <span>
-            <span className="block text-sm font-semibold">Add vendor</span>
-            <span className="mt-1 block text-sm text-muted-foreground">
-              Profile, questionnaire, stall intel, photos, and items given.
-            </span>
-          </span>
-        </Link>
-        <Link
-          href={fieldVendorVisitHref()}
-          className="flex items-start gap-3 rounded-xl border border-border bg-card p-4 shadow-sm transition-colors hover:border-primary/40 sm:p-5"
-        >
-          <ClipboardCheck className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden />
-          <span>
-            <span className="block text-sm font-semibold">Items given</span>
-            <span className="mt-1 block text-sm text-muted-foreground">
-              Tick items you have given her and save with GPS.
-            </span>
-          </span>
-        </Link>
+        <div className="flex flex-wrap items-center gap-3">
+          <Link href="/dashboard/outlet-visits/history" className={calmMutedLinkClass}>
+            Today&apos;s visits
+          </Link>
+          <Link href="/dashboard/outlet-visits/new" className={`${calmPrimaryButtonInlineClass} gap-1.5`}>
+            <Plus className="size-4" aria-hidden />
+            Add vendor
+          </Link>
+        </div>
       </div>
 
       <section className="rounded-xl border border-border bg-card p-4 shadow-sm sm:p-5">
@@ -124,22 +99,14 @@ export default function FieldVendorsHubPage(): ReactElement {
                   .filter((part) => part != null && part.trim().length > 0)
                   .join(" · ");
                 return (
-                  <li key={vendor.id} className="flex items-center justify-between gap-3 py-3">
-                    <div className="flex min-w-0 items-center gap-3">
-                      <VendorAvatar outlet={vendor} size="sm" />
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-foreground">{vendor.name}</p>
-                        <p className="truncate text-xs text-muted-foreground">
-                          {place.length > 0 ? place : vendorTypeDisplayLabel(vendor)}
-                        </p>
-                      </div>
+                  <li key={vendor.id} className="flex items-center gap-3 py-3">
+                    <VendorAvatar outlet={vendor} size="sm" />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-foreground">{vendor.name}</p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {place.length > 0 ? place : vendorTypeDisplayLabel(vendor)}
+                      </p>
                     </div>
-                    <Link
-                      href={fieldVendorVisitHref(vendor.id)}
-                      className={`${calmPrimaryButtonInlineClass} min-w-20 px-3 py-2 text-xs`}
-                    >
-                      Items
-                    </Link>
                   </li>
                 );
               })}
@@ -151,8 +118,7 @@ export default function FieldVendorsHubPage(): ReactElement {
                     <th className="py-2 pr-3 font-medium">Business</th>
                     <th className="py-2 pr-3 font-medium">Type</th>
                     <th className="py-2 pr-3 font-medium">Location</th>
-                    <th className="py-2 pr-3 font-medium">Phone</th>
-                    <th className="py-2 text-right font-medium">Action</th>
+                    <th className="py-2 font-medium">Phone</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -177,17 +143,7 @@ export default function FieldVendorsHubPage(): ReactElement {
                         <td className="py-3 pr-3 text-muted-foreground">
                           {place.length > 0 ? place : "—"}
                         </td>
-                        <td className="py-3 pr-3 text-muted-foreground">
-                          {vendor.contactPhone ?? "—"}
-                        </td>
-                        <td className="py-3 text-right">
-                          <Link
-                            href={fieldVendorVisitHref(vendor.id)}
-                            className={calmPrimaryButtonInlineClass}
-                          >
-                            Items
-                          </Link>
-                        </td>
+                        <td className="py-3 text-muted-foreground">{vendor.contactPhone ?? "—"}</td>
                       </tr>
                     );
                   })}

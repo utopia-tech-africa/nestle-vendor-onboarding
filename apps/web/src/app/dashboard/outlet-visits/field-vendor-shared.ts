@@ -249,13 +249,6 @@ export const pendingVendorsToRecords = (pendingVendors: PendingLocalVendor[]): O
     isActive: true
   }));
 
-export const fieldVendorVisitHref = (outletId?: string): string => {
-  if (outletId === undefined || outletId.length === 0) {
-    return "/dashboard/outlet-visits/visit";
-  }
-  return `/dashboard/outlet-visits/visit?outletId=${encodeURIComponent(outletId)}`;
-};
-
 export const optionalProfilePayload = (
   form: NewVendorFormState
 ): {

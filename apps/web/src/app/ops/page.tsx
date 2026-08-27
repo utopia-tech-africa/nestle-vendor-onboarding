@@ -360,6 +360,11 @@ export default function OpsOverviewPage(): ReactElement {
             </Link>
           </li>
           <li>
+            <Link href="/ops/items" className={calmMutedLinkClass}>
+              Items given
+            </Link>
+          </li>
+          <li>
             <Link href="/ops/outlets/visits" className={calmMutedLinkClass}>
               Vendor visits
             </Link>

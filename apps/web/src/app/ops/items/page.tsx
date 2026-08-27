@@ -10,11 +10,11 @@ export default function OpsItemsGivenPage(): ReactElement {
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-foreground">Items given</h1>
         <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-          Look up a vendor by phone number, then tick each item you have given her — umbrellas, tables,
-          posters, or anything else the team hands out.
+          Look up a vendor by phone to see which items she has been given. Manage the catalog of
+          umbrellas, tables, posters, and other handouts. Promoters record new items on field visits.
         </p>
       </div>
-      <VendorItemLookup canRecord canManageCatalog />
+      <VendorItemLookup canRecord={false} canManageCatalog />
     </div>
   );
 }

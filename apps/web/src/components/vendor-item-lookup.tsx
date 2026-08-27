@@ -361,7 +361,9 @@ export function VendorItemLookup({
 
           {lookup.items.length === 0 ? (
             <p className="mt-4 text-sm text-muted-foreground">
-              Add the items you give vendors below, then look this vendor up again.
+              {canManageCatalog
+                ? "No items in the catalog yet. Add them below, then look this vendor up again."
+                : "No items configured."}
             </p>
           ) : (
             <fieldset className="mt-4 min-w-0 border-0 p-0">
@@ -422,7 +424,7 @@ export function VendorItemLookup({
         <section className={cardClass}>
           <h2 className="text-base font-semibold text-foreground">Items you give</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            These appear as a checklist when you look up a vendor. Add umbrellas, tables, poster packs, or
+            These appear on the promoter Items checklist. Add umbrellas, tables, poster packs, or
             anything else the team hands out.
           </p>
           <form

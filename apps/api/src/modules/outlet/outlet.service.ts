@@ -40,7 +40,7 @@ const OUTLET_MANAGER_ROLES = new Set<UserRole>(["admin", "supervisor"]);
 const OUTLET_VIEWER_ROLES = new Set<UserRole>(["admin", "supervisor", "client"]);
 const FIELD_OUTLET_ROLES = new Set<UserRole>(["promoter"]);
 const DISTRIBUTION_VIEWER_ROLES = new Set<UserRole>(["admin", "supervisor", "client", "promoter"]);
-const DISTRIBUTION_RECORDER_ROLES = new Set<UserRole>(["admin", "supervisor", "promoter"]);
+const DISTRIBUTION_RECORDER_ROLES = new Set<UserRole>(["promoter"]);
 
 const hidePersonalContact = (role: UserRole): boolean => role === "client";
 

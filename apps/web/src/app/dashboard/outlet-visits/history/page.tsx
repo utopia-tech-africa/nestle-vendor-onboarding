@@ -38,7 +38,7 @@ export default function OutletVisitHistoryPage(): ReactElement {
         <p className="mt-1 text-sm text-muted-foreground">
           Vendor visits you recorded today, including onboarding and items given. This list clears at
           midnight.{" "}
-          <Link href="/dashboard/outlet-visits/visit" className={calmMutedLinkClass}>
+          <Link href="/dashboard/items" className={calmMutedLinkClass}>
             Record items given
           </Link>
         </p>
