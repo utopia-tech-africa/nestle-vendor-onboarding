@@ -216,7 +216,7 @@ export class OutletRepository {
     includePersonalContactSearch?: boolean;
   }) {
     const where = this.buildListWhere(params);
-    const [items, total] = await Promise.all([
+    const [items, total, withPhotos] = await Promise.all([
       this.prisma.outlet.findMany({
         where,
         orderBy: { createdAt: "desc" },
@@ -224,9 +224,66 @@ export class OutletRepository {
         skip: params.skip,
         select: outletSelect
       }),
-      this.prisma.outlet.count({ where })
+      this.prisma.outlet.count({ where }),
+      this.prisma.outlet.count({
+        where: { AND: [where, { onboardingPhotos: { some: {} } }] }
+      })
     ]);
-    return { items, total };
+    return { items, total, withPhotos };
+  }
+
+  public findForExport(params: {
+    search?: string;
+    regionId?: string;
+    category?: string;
+    isActive?: boolean;
+    createdByUserId?: string;
+    unassigned?: boolean;
+    includePersonalContactSearch?: boolean;
+    take?: number;
+  }) {
+    const where = this.buildListWhere(params);
+    const take = Math.min(5000, Math.max(1, params.take ?? 5000));
+    return this.prisma.outlet.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      take,
+      select: {
+        id: true,
+        vendorCode: true,
+        name: true,
+        vendorTypeGroup: true,
+        category: true,
+        locationArea: true,
+        district: true,
+        yearsInBusiness: true,
+        latitude: true,
+        longitude: true,
+        contactName: true,
+        contactPhone: true,
+        contactPhoneSecondary: true,
+        vendorRole: true,
+        gender: true,
+        ageBracket: true,
+        employeeCountBracket: true,
+        averageDailySalesBracket: true,
+        landmark: true,
+        isActive: true,
+        createdAt: true,
+        region: { select: { name: true } },
+        createdBy: { select: { fullName: true, region: { select: { name: true } } } },
+        onboardingPhotos: { select: { category: true }, orderBy: { createdAt: "asc" } },
+        visits: {
+          select: {
+            kind: true,
+            checkedInAt: true,
+            hasOutletPhoto: true,
+            _count: { select: { photos: true } }
+          },
+          orderBy: { checkedInAt: "desc" }
+        }
+      }
+    });
   }
 
   private buildListWhere(params: {

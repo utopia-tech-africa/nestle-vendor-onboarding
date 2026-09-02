@@ -276,6 +276,7 @@ export type QuestionnaireRecord = {
 export type OutletListPage = {
   items: OutletRecord[];
   total: number;
+  withPhotos?: number;
 };
 
 export const formatPageRangeLabel = (
@@ -331,6 +332,87 @@ export const listOutlets = async (
     query.set("createdByUserId", params.createdByUserId.trim());
   }
   return apiRequest<OutletListPage>(`/admin/outlets?${query.toString()}`, { token });
+};
+
+export type VendorExportRow = {
+  vendorId: string;
+  id: string;
+  businessName: string;
+  vendorName: string;
+  phone: string;
+  phoneSecondary: string;
+  role: string;
+  gender: string;
+  ageBracket: string;
+  employees: string;
+  avgSalesDayGhs: string;
+  landmark: string;
+  promoterRegion: string;
+  vendorRegion: string;
+  district: string;
+  community: string;
+  vendorType: string;
+  yearsInBusiness: string | number;
+  latitude: string | number;
+  longitude: string | number;
+  createdAt: string;
+  promoter: string;
+  isActive: string;
+  photoCount: number;
+  hasPhotos: string;
+  photoCategories: string;
+  visitCount: number;
+  onboardingVisits: number;
+  itemsGivenVisits: number;
+  visitsWithPhotos: number;
+  visitPhotoCount: number;
+  lastVisitAt: string;
+  lastVisitKind: string;
+};
+
+export type VendorExportPayload = {
+  summary: {
+    vendors: number;
+    vendorsWithPhotos: number;
+    vendorsWithoutPhotos: number;
+    visits: number;
+    onboardingVisits: number;
+    itemsGivenVisits: number;
+    visitsWithPhotos: number;
+  };
+  truncated: boolean;
+  items: VendorExportRow[];
+};
+
+const outletFilterQuery = (params: OutletListParams): URLSearchParams => {
+  const query = new URLSearchParams();
+  if (params.search !== undefined && params.search.trim().length > 0) {
+    query.set("search", params.search.trim());
+  }
+  if (params.regionId !== undefined && params.regionId.trim().length > 0) {
+    query.set("regionId", params.regionId.trim());
+  }
+  if (params.category !== undefined && params.category.trim().length > 0) {
+    query.set("category", params.category.trim());
+  }
+  if (params.status !== undefined && params.status !== "all") {
+    query.set("status", params.status);
+  }
+  if (params.unassigned === true) {
+    query.set("unassigned", "true");
+  } else if (params.createdByUserId !== undefined && params.createdByUserId.trim().length > 0) {
+    query.set("createdByUserId", params.createdByUserId.trim());
+  }
+  return query;
+};
+
+export const exportOutlets = async (
+  token: string,
+  params: OutletListParams = {}
+): Promise<VendorExportPayload> => {
+  const query = outletFilterQuery(params);
+  const qs = query.toString();
+  return apiRequest<VendorExportPayload>(`/admin/outlets/export${qs ? `?${qs}` : ""}`, { token });
 };
 
 export type OutletFilterOption = {

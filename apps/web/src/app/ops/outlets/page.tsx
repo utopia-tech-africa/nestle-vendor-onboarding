@@ -10,6 +10,7 @@ import {
   useMemo,
   useState
 } from "react";
+import * as XLSX from "xlsx";
 
 import { BoneyardInlineFallback } from "@/components/boneyard/boneyard-inline-fallback";
 import { CatalogSelect } from "@/components/catalog-fields";
@@ -31,12 +32,14 @@ import { useAuthStore } from "@/lib/auth/auth-store";
 import {
   calmPrimaryButtonClass,
   calmPrimaryButtonInlineClass,
-  calmSecondaryButtonClass
+  calmSecondaryButtonClass,
+  calmToolbarOutlineButtonInlineClass
 } from "@/lib/calm-ui";
 import { parseRegionsFromOrval } from "@/lib/ops/ops-adapters";
 import { FALLBACK_FIELD_CATALOGS, catalogLabel, vendorTypeDisplayLabel, catalogOptionsWithCurrent, type FieldCatalogs } from "@/lib/outlet/field-catalogs";
 import {
   createOutlet,
+  exportOutlets,
   formatPageRangeLabel,
   getFieldCatalogs,
   listOutlets,
@@ -44,6 +47,7 @@ import {
   promoterOptionLabel,
   updateOutlet,
   type CreateOutletPayload,
+  type OutletListParams,
   type OutletRecord
 } from "@/lib/outlet/outlet-api";
 import { toast } from "@/lib/toast";
@@ -562,6 +566,7 @@ export default function OpsOutletsPage(): ReactElement {
   const [typeFilter, setTypeFilter] = useState(SELECT_NONE);
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
   const [promoterFilter, setPromoterFilter] = useState(SELECT_NONE);
+  const [isExporting, setIsExporting] = useState(false);
   const vendorFilterKey = `${search}|${regionFilter}|${typeFilter}|${statusFilter}|${promoterFilter}`;
   const [paging, setPaging] = useState({ page: 1, filterKey: vendorFilterKey });
   if (paging.filterKey !== vendorFilterKey) {
@@ -627,7 +632,19 @@ export default function OpsOutletsPage(): ReactElement {
   });
   const outlets = outletsQuery.data?.items ?? EMPTY_OUTLETS;
   const outletTotal = outletsQuery.data?.total ?? 0;
+  const vendorsWithPhotos = outletsQuery.data?.withPhotos ?? 0;
   const vendorPageCount = Math.max(1, Math.ceil(outletTotal / VENDOR_PAGE_SIZE));
+
+  const listFilterParams = (): OutletListParams => ({
+    ...(search.trim() ? { search: search.trim() } : {}),
+    ...(regionFilter !== SELECT_NONE ? { regionId: regionFilter } : {}),
+    ...(typeFilter !== SELECT_NONE ? { category: typeFilter } : {}),
+    ...(statusFilter !== "all" ? { status: statusFilter } : {}),
+    ...(promoterFilter === SELECT_UNASSIGNED ? { unassigned: true } : {}),
+    ...(promoterFilter !== SELECT_NONE && promoterFilter !== SELECT_UNASSIGNED
+      ? { createdByUserId: promoterFilter }
+      : {})
+  });
 
   const promotersQuery = useQuery({
     queryKey: ["ops", "promoters"],
@@ -758,6 +775,68 @@ export default function OpsOutletsPage(): ReactElement {
     setCreating(true);
   };
 
+  const exportExcel = async (): Promise<void> => {
+    if (accessToken === null) {
+      return;
+    }
+    setIsExporting(true);
+    try {
+      const payload = await exportOutlets(accessToken, listFilterParams());
+      if (payload.items.length === 0) {
+        toast.info("No vendors match the selected filters.");
+        return;
+      }
+      const summaryRows = [
+        { metric: "Vendors", value: payload.summary.vendors },
+        { metric: "Vendors with photos", value: payload.summary.vendorsWithPhotos },
+        { metric: "Vendors without photos", value: payload.summary.vendorsWithoutPhotos },
+        { metric: "Visits (all)", value: payload.summary.visits },
+        { metric: "Onboarding visits", value: payload.summary.onboardingVisits },
+        { metric: "Items-given visits", value: payload.summary.itemsGivenVisits },
+        { metric: "Visits with photos", value: payload.summary.visitsWithPhotos }
+      ];
+      const vendorRows = payload.items.map((row) => ({
+        vendorId: row.vendorId,
+        businessName: row.businessName,
+        vendorName: row.vendorName,
+        phone: row.phone,
+        promoter: row.promoter,
+        promoterRegion: row.promoterRegion,
+        district: row.district,
+        community: row.community,
+        vendorType: row.vendorType,
+        photoCount: row.photoCount,
+        hasPhotos: row.hasPhotos,
+        photoCategories: row.photoCategories,
+        visitCount: row.visitCount,
+        onboardingVisits: row.onboardingVisits,
+        itemsGivenVisits: row.itemsGivenVisits,
+        visitsWithPhotos: row.visitsWithPhotos,
+        visitPhotoCount: row.visitPhotoCount,
+        lastVisitAt: row.lastVisitAt,
+        lastVisitKind: row.lastVisitKind,
+        createdAt: row.createdAt,
+        isActive: row.isActive,
+        latitude: row.latitude,
+        longitude: row.longitude
+      }));
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(summaryRows), "Summary");
+      XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(vendorRows), "Vendors");
+      const now = new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(workbook, `vendor-export-${now}.xlsx`);
+      toast.success(
+        payload.truncated
+          ? `Exported first ${String(payload.items.length)} vendors.`
+          : `Exported ${String(payload.items.length)} vendors.`
+      );
+    } catch {
+      toast.error("Could not export vendors.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -766,7 +845,8 @@ export default function OpsOutletsPage(): ReactElement {
           <p className="mt-1 text-sm text-muted-foreground">
             Master list of koko vendors. Filter by promoter region to see who that territory’s
             promoters onboarded. Each vendor gets a region-based ID such as{" "}
-            <code className="text-xs">GA-001</code>. Click a row for details.
+            <code className="text-xs">GA-001</code>. Export includes photo counts and visit totals
+            so you can match vendors to visit reports. Click a row for details.
           </p>
           <p className="mt-1 text-sm">
             <Link
@@ -777,9 +857,21 @@ export default function OpsOutletsPage(): ReactElement {
             </Link>
           </p>
         </div>
-        <button type="button" className={calmPrimaryButtonInlineClass} onClick={openCreate}>
-          Add vendor
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            className={calmToolbarOutlineButtonInlineClass}
+            disabled={isExporting || accessToken === null || outletTotal === 0}
+            onClick={() => {
+              void exportExcel();
+            }}
+          >
+            {isExporting ? "Exporting…" : "Export Excel"}
+          </button>
+          <button type="button" className={calmPrimaryButtonInlineClass} onClick={openCreate}>
+            Add vendor
+          </button>
+        </div>
       </div>
 
       <section className={cardClass}>
@@ -862,11 +954,14 @@ export default function OpsOutletsPage(): ReactElement {
       </section>
 
       <section className={cardClass}>
-        <div className="flex items-baseline justify-between gap-3">
+        <div className="flex flex-wrap items-baseline justify-between gap-3">
           <h2 className="text-base font-semibold text-foreground">Vendor database</h2>
           {outletsQuery.data !== undefined ? (
             <p className="text-xs text-muted-foreground">
               {formatPageRangeLabel(skip, outlets.length, outletTotal, "vendors")}
+              {outletTotal > 0
+                ? ` · ${String(vendorsWithPhotos)} with photos`
+                : ""}
             </p>
           ) : null}
         </div>
@@ -893,6 +988,7 @@ export default function OpsOutletsPage(): ReactElement {
                   <th className="py-2 pr-3 font-medium">Phone</th>
                   <th className="py-2 pr-3 font-medium">Region</th>
                   <th className="py-2 pr-3 font-medium">Onboarded by</th>
+                  <th className="py-2 pr-3 font-medium">Photos</th>
                   <th className="py-2 font-medium">Status</th>
                 </tr>
               </thead>
@@ -932,6 +1028,11 @@ export default function OpsOutletsPage(): ReactElement {
                       <td className="py-3 pr-3 text-muted-foreground">{outlet.contactPhone ?? "—"}</td>
                       <td className="py-3 pr-3 text-muted-foreground">{outlet.region?.name ?? "—"}</td>
                       <td className="py-3 pr-3 text-muted-foreground">{onboardedByLabel(outlet)}</td>
+                      <td className="py-3 pr-3 text-muted-foreground">
+                        {(outlet.onboardingPhotos ?? []).length > 0
+                          ? String((outlet.onboardingPhotos ?? []).length)
+                          : "None"}
+                      </td>
                       <td className="py-3">
                         <span className={statusBadgeClass(outlet.isActive)}>
                           {outlet.isActive ? "Active" : "Inactive"}

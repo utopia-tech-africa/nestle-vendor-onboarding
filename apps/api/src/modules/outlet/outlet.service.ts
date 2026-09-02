@@ -35,6 +35,7 @@ import {
   phoneLookupNeedle,
   vendorCodeLookupCandidates
 } from "./vendor-code-query";
+import { summarizeVendorExport, toVendorExportRow } from "./vendor-export.util";
 
 const OUTLET_MANAGER_ROLES = new Set<UserRole>(["admin", "supervisor"]);
 const OUTLET_VIEWER_ROLES = new Set<UserRole>(["admin", "supervisor", "client"]);
@@ -284,9 +285,7 @@ export class OutletService {
     const take = Math.min(100, Math.max(1, params.limit));
     const skip = Math.max(0, params.skip ?? 0);
     const redactContact = hidePersonalContact(currentUser.role);
-    const { items, total } = await this.outletRepository.findPage({
-      take,
-      skip,
+    const listFilters = {
       includePersonalContactSearch: !redactContact,
       ...(params.search !== undefined ? { search: params.search } : {}),
       ...(params.regionId !== undefined ? { regionId: params.regionId } : {}),
@@ -294,6 +293,11 @@ export class OutletService {
       ...(params.isActive !== undefined ? { isActive: params.isActive } : {}),
       ...(params.createdByUserId !== undefined ? { createdByUserId: params.createdByUserId } : {}),
       ...(params.unassigned === true ? { unassigned: true } : {})
+    };
+    const { items, total, withPhotos } = await this.outletRepository.findPage({
+      take,
+      skip,
+      ...listFilters
     });
     const decorated = await this.decorateOutlets(items);
     return {
@@ -308,7 +312,50 @@ export class OutletService {
               outlet.createdBy == null ? outlet.createdBy : { ...outlet.createdBy, phone: "" }
           }))
         : decorated,
-      total
+      total,
+      withPhotos
+    };
+  }
+
+  public async exportForAdmin(
+    currentUser: AuthenticatedUser,
+    params: {
+      search?: string;
+      regionId?: string;
+      category?: string;
+      isActive?: boolean;
+      createdByUserId?: string;
+      unassigned?: boolean;
+    }
+  ) {
+    this.assertOutletManager(currentUser);
+    const rows = await this.outletRepository.findForExport({
+      includePersonalContactSearch: true,
+      ...(params.search !== undefined ? { search: params.search } : {}),
+      ...(params.regionId !== undefined ? { regionId: params.regionId } : {}),
+      ...(params.category !== undefined ? { category: params.category } : {}),
+      ...(params.isActive !== undefined ? { isActive: params.isActive } : {}),
+      ...(params.createdByUserId !== undefined ? { createdByUserId: params.createdByUserId } : {}),
+      ...(params.unassigned === true ? { unassigned: true } : {})
+    });
+    const mapped = rows.map((outlet) =>
+      toVendorExportRow(
+        {
+          ...outlet,
+          visits: outlet.visits.map((visit) => ({
+            kind: visit.kind,
+            checkedInAt: visit.checkedInAt,
+            hasOutletPhoto: visit.hasOutletPhoto,
+            photoCount: visit._count.photos
+          }))
+        },
+        false
+      )
+    );
+    return {
+      summary: summarizeVendorExport(mapped),
+      truncated: mapped.length >= 5000,
+      items: mapped
     };
   }
 

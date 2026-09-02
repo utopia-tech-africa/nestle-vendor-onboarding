@@ -106,6 +106,51 @@ export class OutletController {
     });
   }
 
+  @Get("export")
+  @ApiOperation({
+    operationId: "AdminOutlet_exportOutlets",
+    summary: "Export vendors with photo and visit counts",
+    description:
+      "Returns every matching vendor (up to 5,000) plus photo counts and visit totals so ops can match onboarded vendors to visits."
+  })
+  @ApiQuery({ name: "search", required: false })
+  @ApiQuery({ name: "regionId", required: false })
+  @ApiQuery({ name: "category", required: false })
+  @ApiQuery({
+    name: "status",
+    required: false,
+    schema: { type: "string", enum: ["all", "active", "inactive"] }
+  })
+  @ApiQuery({ name: "createdByUserId", required: false })
+  @ApiQuery({
+    name: "unassigned",
+    required: false,
+    schema: { type: "boolean" }
+  })
+  @ApiOkResponse({ description: "Vendor export rows and summary" })
+  @ApiUnauthorizedResponse({ description: "Missing or invalid JWT" })
+  @ApiForbiddenResponse({ description: "Requires supervisor or admin role" })
+  public exportOutlets(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Query("search") search?: string,
+    @Query("regionId") regionId?: string,
+    @Query("category") category?: string,
+    @Query("status") status?: string,
+    @Query("createdByUserId") createdByUserId?: string,
+    @Query("unassigned") unassigned?: string
+  ) {
+    const statusFilter = status?.trim().toLowerCase();
+    return this.outletService.exportForAdmin(currentUser, {
+      ...(search?.trim() ? { search: search.trim() } : {}),
+      ...(regionId?.trim() ? { regionId: regionId.trim() } : {}),
+      ...(category?.trim() ? { category: category.trim() } : {}),
+      ...(statusFilter === "active" ? { isActive: true } : {}),
+      ...(statusFilter === "inactive" ? { isActive: false } : {}),
+      ...(createdByUserId?.trim() ? { createdByUserId: createdByUserId.trim() } : {}),
+      ...(unassigned === "true" || unassigned === "1" ? { unassigned: true } : {})
+    });
+  }
+
   @Get("options")
   @ApiOperation({
     operationId: "AdminOutlet_listOutletOptions",

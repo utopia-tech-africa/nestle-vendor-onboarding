@@ -23,7 +23,11 @@ import type { AuthenticatedUser, UserRole } from "../../common/types/authenticat
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import type { Prisma } from "../../generated/prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
-import { vendorTypeExportLabel } from "../outlet/field-catalogs";
+import {
+  VENDOR_EXPORT_CSV_HEADER,
+  toVendorExportRow,
+  vendorExportCsvRow
+} from "../outlet/vendor-export.util";
 import {
   buildNestleOverviewPdf,
   type NestleOverviewPayload
@@ -377,40 +381,58 @@ export class NestleDashboardController {
         },
         orderBy: { createdAt: "desc" },
         take: 5000,
-        include: {
-          createdBy: { select: { fullName: true, region: { select: { name: true } } } }
+        select: {
+          id: true,
+          vendorCode: true,
+          name: true,
+          vendorTypeGroup: true,
+          category: true,
+          locationArea: true,
+          district: true,
+          yearsInBusiness: true,
+          latitude: true,
+          longitude: true,
+          contactName: true,
+          contactPhone: true,
+          contactPhoneSecondary: true,
+          vendorRole: true,
+          gender: true,
+          ageBracket: true,
+          employeeCountBracket: true,
+          averageDailySalesBracket: true,
+          landmark: true,
+          isActive: true,
+          createdAt: true,
+          region: { select: { name: true } },
+          createdBy: { select: { fullName: true, region: { select: { name: true } } } },
+          onboardingPhotos: { select: { category: true } },
+          visits: {
+            select: {
+              kind: true,
+              checkedInAt: true,
+              hasOutletPhoto: true,
+              _count: { select: { photos: true } }
+            }
+          }
         }
       });
-      const header =
-        "vendorId,id,businessName,vendorName,phone,phoneSecondary,role,gender,ageBracket,employees,avgSalesDayGhs,landmark,region,district,community,vendorType,yearsInBusiness,latitude,longitude,createdAt,promoter";
-      const rows = vendors.map((v) =>
-        [
-          csv(v.vendorCode),
-          v.id,
-          csv(v.name),
-          csv(v.contactName),
-          csv(v.contactPhone),
-          csv(v.contactPhoneSecondary),
-          csv(v.vendorRole),
-          csv(v.gender),
-          csv(v.ageBracket),
-          csv(v.employeeCountBracket),
-          csv(v.averageDailySalesBracket),
-          csv(v.landmark),
-          csv(v.createdBy?.region?.name),
-          csv(v.district),
-          csv(v.locationArea),
-          csv(vendorTypeExportLabel(v)),
-          v.yearsInBusiness ?? "",
-          v.latitude ?? "",
-          v.longitude ?? "",
-          v.createdAt.toISOString(),
-          csv(v.createdBy?.fullName)
-        ].join(",")
+      const rows = vendors.map((vendor) =>
+        toVendorExportRow(
+          {
+            ...vendor,
+            visits: vendor.visits.map((visit) => ({
+              kind: visit.kind,
+              checkedInAt: visit.checkedInAt,
+              hasOutletPhoto: visit.hasOutletPhoto,
+              photoCount: visit._count.photos
+            }))
+          },
+          currentUser.role === "client"
+        )
       );
       sendBinaryFile(
         res,
-        Buffer.from([header, ...rows].join("\n"), "utf8"),
+        Buffer.from([VENDOR_EXPORT_CSV_HEADER, ...rows.map((row) => vendorExportCsvRow(row))].join("\n"), "utf8"),
         "text/csv; charset=utf-8",
         "nestle-vendors.csv"
       );
@@ -433,9 +455,10 @@ export class NestleDashboardController {
       orderBy: { checkedInAt: "desc" },
       take: 5000,
       include: {
-        outlet: { select: { name: true, locationArea: true, district: true } },
+        outlet: { select: { vendorCode: true, name: true, locationArea: true, district: true } },
         user: { select: { fullName: true, phone: true } },
-        competitorObservations: true
+        competitorObservations: true,
+        _count: { select: { photos: true } }
       }
     });
 
@@ -472,16 +495,19 @@ export class NestleDashboardController {
 
     const includePromoterPhone = currentUser.role !== "client";
     const header = includePromoterPhone
-      ? "visitId,vendor,community,district,promoter,phone,latitude,longitude,traffic,footfallEstimated,peakPeriods,nestleProducts,visibilityScore,complete,checkedInAt"
-      : "visitId,vendor,community,district,promoter,latitude,longitude,traffic,footfallEstimated,peakPeriods,nestleProducts,visibilityScore,complete,checkedInAt";
+      ? "visitId,vendorId,vendor,community,district,promoter,phone,kind,photoCount,latitude,longitude,traffic,footfallEstimated,peakPeriods,nestleProducts,visibilityScore,complete,checkedInAt"
+      : "visitId,vendorId,vendor,community,district,promoter,kind,photoCount,latitude,longitude,traffic,footfallEstimated,peakPeriods,nestleProducts,visibilityScore,complete,checkedInAt";
     const rows = visits.map((v) =>
       [
         v.id,
+        csv(v.outlet.vendorCode),
         csv(v.outlet.name),
         csv(v.outlet.locationArea),
         csv(v.outlet.district),
         csv(v.user.fullName),
         ...(includePromoterPhone ? [csv(v.user.phone)] : []),
+        v.kind === "items" ? "items given" : "onboarding",
+        v._count.photos,
         v.latitude,
         v.longitude,
         v.trafficCategory ?? "",
